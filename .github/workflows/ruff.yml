@@ -21,6 +21,9 @@ jobs:
 
       - name: Sync dependencies
         run: uv sync                # 4. pyproject.toml 기반 의존성 설치
+      
+      - name: Install uv audit
+        run: uv pip install uv-audit
 
       - name: Ruff Lint
         uses: astral-sh/ruff-action@v3
@@ -34,7 +37,7 @@ jobs:
           args: format --check .    # 6. Ruff로 코드 포맷 검사
 
       - name: Run uv audit
-        run: uv audit               # 7. 패키지 취약점 점검
+        run: uv run uv-audit               # 7. 패키지 취약점 점검
 
       - name: Run Pytest
         run: uv run pytest          # 8. Pytest로 자동화 테스트 실행
