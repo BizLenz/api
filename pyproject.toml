@@ -4,8 +4,9 @@ version = "0.1.0"
 description = "Test project"
 requires-python = ">=3.11"
 
-[project.dependencies]
-pytest = "^7.0.0"
-# 기타 필요한 패키지 추가
+dependencies = [
+    "pytest>=7.0.0",
+    # 필요한 패키지 추가
+]
 
 [tool.uv]  # uv 사용 시 필요
