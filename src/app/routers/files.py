@@ -21,7 +21,7 @@ class FileUploadRequest(BaseModel):
     filetype: str
 
 @files.post("/upload") 
-asnyc def upload_file(file: FileUploadRequest):
+async def upload_file(file: FileUploadRequest):
     try:
         key = f"uploads/{uuid4()}_{file.filename}"
     url = s3_client.generate_presigned_url(    
@@ -36,9 +36,9 @@ asnyc def upload_file(file: FileUploadRequest):
     return {
         "upload_url": url, # presigned URL 반환
         "file_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
-    }  except Exception as e:
+    }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # 에러 발생 시 500 에러 반환
-
 @files.delete("/{key:path}")
 async def delete_file(key: str):
     try:
