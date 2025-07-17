@@ -37,7 +37,7 @@ def test_upload_file_error(mock_s3):
     response = client.post("/upload", json=payload)
     # /upload API가 에러 발생 시, 500 에러 코드와 에러 메시지가 반환되는지 확인
     assert response.status_code == 500
-    assert "upload failed" in response.text
+    assert response.json()["detail"] == "S3 error"
 
     def test_delete_file(mock_s3):
         mock.s3.delete_object.return_value = {}
@@ -51,5 +51,5 @@ def test_upload_file_error(mock_s3):
         response = client.delete("/uploads/test.txt")
         # /delete API가 에러 발생 시, 500 에러 코드와 에러 메시지가 반환되는지 확인
         assert response.status_code == 500
-        assert "File deletion failed" in response.text
+        assert response.json()["detail"] == "S3 error"
 
