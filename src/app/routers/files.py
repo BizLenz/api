@@ -28,7 +28,7 @@ async def upload_file(file: FileUploadRequest):
         url = s3_client.generate_presigned_url(    
             'put_object', # S3에 파일 업로드 명령어
             Params={ #버킷 파라미터
-                'Bucket':S3_BUCKET,
+                'Bucket':file.S3_BUCKET,
                 'Key': key,
                 'ContentType': file.filetype
             },
@@ -36,7 +36,7 @@ async def upload_file(file: FileUploadRequest):
         )
         return {
             "upload_url": url, # presigned URL 반환
-            "file_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
+            "file_url": f"https://{file.S3_BUCKET}.s3.amazonaws.com/{key}"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # 에러 발생 시 500 에러 반환
