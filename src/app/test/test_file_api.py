@@ -8,7 +8,7 @@ client = TestClient(app)
 
 @pytest.fixture
 def mock_s3():
-    with patch("app.router.files.s3._client") as mock:
+    with patch("app.routers.files.s3._client") as mock:
         yield mock 
 # 실제 S3 클라이언트에 연결하지 않고, boto3의 s3_client를 모킹하여 s3와의 네트워크 통신 차단.
 # 네트워크 요금 발생하지 않음.
