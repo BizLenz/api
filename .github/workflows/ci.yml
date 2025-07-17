@@ -30,14 +30,15 @@ jobs:
         with:
           args: check --output-format=github .
                                     # 5. Ruff로 코드 린트 검사
+                                    
+      - name : Ruff Fix
+        run: format .
 
       - name: Ruff Format Check
         uses: astral-sh/ruff-action@v3
         with:
           args: format --check .    # 6. Ruff로 코드 포맷 검사
-          
-      - name: Ruff Format auto
-        run: ruff format .
+        
 
       - name: Run uv audit
         run: uv run uv-audit               # 7. 패키지 취약점 점검
