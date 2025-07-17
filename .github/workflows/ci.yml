@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [ "feature" ]         # feature 브랜치에 push될 때 실행
+    branches: [ "main", "managefile" ]         
   pull_request:
-    branches: [ "feature" ]         # feature 브랜치로 PR 생성/업데이트 시 실행
-  workflow_dispatch:                # 수동 실행 지원
+    branches: [ "main", "managefile" ]         
+  workflow_dispatch:                
 
 jobs:
   build:
