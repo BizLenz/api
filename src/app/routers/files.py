@@ -33,10 +33,10 @@ async def upload_file(file: FileUploadRequest):
             },
             ExpiresIn=300 #5분 유효
         )
-    return {
-        "upload_url": url, # presigned URL 반환
-        "file_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
-    }
+        return {
+            "upload_url": url, # presigned URL 반환
+            "file_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  # 에러 발생 시 500 에러 반환
 @files.delete("/{key:path}")
