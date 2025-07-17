@@ -15,7 +15,7 @@ def mock_s3():
 # 이 fixture를 통해, s3의 generate_presigned_url과 delete_object 메서드 자유롭게 제어함.
 
 def test_upload_file(mock_s3):
-    mock.s3.generate_presigned_url.return_value = "https://dummy-url.com"
+    mock_s3.generate_presigned_url.return_value = "https://dummy-url.com"
     payload = {
         "filename": "test.txt",
         "filetype": "text/plain"
@@ -28,7 +28,7 @@ def test_upload_file(mock_s3):
     assert "file_url" in response.json()
 
 def test_upload_file_error(mock_s3):
-    mock.s3.generate_presigned_url.side_effect = Exception("S3 error")
+    mock_s3.generate_presigned_url.side_effect = Exception("S3 error")
     payload = {
         "filename": "test.txt",
         "filetype": "text/plain"
