@@ -1,7 +1,7 @@
 import os
 import boto3
 from uuid import uuid4
-from fastapi import APIRouter, HTTPException
+from fastapi import FastAPI() HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 load_dotenv()
@@ -13,7 +13,8 @@ s3_client = boto3.client(
     's3',
     region_name=os.getenv('AWS_REGION'),
     aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY')
+    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+    S3_BUCKET=os.getenv('S3_BUCKET')
 )
 #pydantic 모델의 요청 형식 정의
 class FileUploadRequest(BaseModel):  
