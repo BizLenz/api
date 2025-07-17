@@ -1,7 +1,7 @@
 [project]
-name = "BackEnd"
+name = "api"
 version = "0.1.0"
-description = "Test project"
+description = "BackEnd project"
 requires-python = ">=3.11"
 
 dependencies = [
