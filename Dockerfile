@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY pyproject.toml .  # ← 이 줄을 반드시 추가!
+COPY pyproject.toml .  
 # COPY poetry.lock .   # 만약 사용하는 경우
 
 
