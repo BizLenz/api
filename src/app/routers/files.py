@@ -24,15 +24,15 @@ class FileUploadRequest(BaseModel):
 async def upload_file(file: FileUploadRequest):
     try:
         key = f"uploads/{uuid4()}_{file.filename}"
-    url = s3_client.generate_presigned_url(    
-        'put_object', # S3에 파일 업로드 명령어
-        Params={ #버킷 파라미터
-            'Bucket':S3_BUCKET,
-            'Key': key,
-            'ContentType': file.filetype
-        },
-        ExpiresIn=300 #5분 유효
-    )
+        url = s3_client.generate_presigned_url(    
+            'put_object', # S3에 파일 업로드 명령어
+            Params={ #버킷 파라미터
+                'Bucket':S3_BUCKET,
+                'Key': key,
+                'ContentType': file.filetype
+            },
+            ExpiresIn=300 #5분 유효
+        )
     return {
         "upload_url": url, # presigned URL 반환
         "file_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{key}"
