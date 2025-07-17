@@ -1,7 +1,7 @@
 import os
 import boto3
 from uuid import uuid4
-from fastapi import FastAPI() HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from dotenv import load_dotenv
 load_dotenv()
