@@ -11,7 +11,8 @@ dependencies = [
     "python-dotenv",
     "pydantic",
     "uvicorn",
-    "httpx"
+    "httpx",
+    "botocore"
 ]
 
 [tool.uv]  # uv 사용 시 필요
