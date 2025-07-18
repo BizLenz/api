@@ -18,8 +18,8 @@ def mock_s3():
 def test_upload_file(mock_s3):
     mock_s3.generate_presigned_url.return_value = "https://dummy-url.com"
     payload = {
-        "filename": "test.txt",
-        "filetype": "text/plain"
+        "filename": "test.pdf",
+        "filetype": "pdf"
     }
 
     response = client.post("/upload", json=payload)
@@ -30,7 +30,7 @@ def test_upload_file(mock_s3):
 
 def test_upload_file_error(mock_s3):
     mock_s3.generate_presigned_url.side_effect = botocore.exceptions.ClientError(
-        error_message={
+        error_response={
             "Error": {
                 "Code": "InternalError",
                 "Message": "S3 internal error"
@@ -57,7 +57,7 @@ def test_upload_file_error(mock_s3):
 
     def test_delete_file_error(mock_s3):
         mock.s3.delete_object.side_effect = botocore.exceptions.ClientError(
-            error_message={
+            error_response={
                 "Error": {
                     "Code": "AccessDenied",
                     "Message": "You do not have permission to access this resource"
