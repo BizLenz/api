@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from botocore.exceptions import ClientError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator, ValidationError
+from pydantic import BaseModel, validator
 from dotenv import load_dotenv
 
 load_dotenv()
