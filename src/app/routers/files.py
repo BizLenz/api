@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 from botocre.exceptions import ClientError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator, ValidationError
+from pydantic import BaseModel, validator
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -59,7 +59,7 @@ class FileUploadRequest(BaseModel):
 
 
 def type_s3_exception(e:Exception):
-    if isinstatnce(e, ClientError):
+    if isinstance(e, ClientError):
         error_code = e.response['Error']['Code']
         error_message = e.response['Error']['Message']
         
