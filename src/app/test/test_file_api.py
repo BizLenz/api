@@ -5,13 +5,16 @@ import pytest
 import botocore.exceptions
 
 from app.main import app
+
 client = TestClient(app)
+
 
 @pytest.fixture
 def mock_s3():
     with patch("app.routers.files.s3_client") as mock:
-        yield mock 
-##!! MOCK !!
+        yield mock
+    ##!! MOCK !!
+
 
 def test_upload_file(mock_s3):
     mock_s3.generate_presigned_url.return_value = "https://dummy-url.com"
@@ -25,6 +28,7 @@ def test_upload_file(mock_s3):
     assert response.status_code == 200
     assert "upload_url" in response.json()
     assert "file_url" in response.json()
+
 
 def test_upload_file_error(mock_s3):
     mock_s3.generate_presigned_url.side_effect = botocore.exceptions.ClientError(
@@ -45,13 +49,13 @@ def test_upload_file_error(mock_s3):
     # /upload API가 에러 발생 시, 500 에러 코드와 에러 메시지가 반환되는지 확인
     assert response.status_code == 500
     assert "S3 internal error" in response.json()["detail"]
-    
+
     def test_delete_file(mock_s3):
         mock.s3.delete_object.return_value = {}
         response = client.delete("/uploads/test.txt")
         # /delete API가 정상 동작할 때, 파일 삭제 성공 메시지가 반환되는지 확인
         assert response.status_code == 200
-        assert response.json() == {"message": "File deleted successfully"}  
+        assert response.json() == {"message": "File deleted successfully"}
 
     def test_delete_file_error(mock_s3):
         mock.s3.delete_object.side_effect = botocore.exceptions.ClientError(
@@ -67,4 +71,3 @@ def test_upload_file_error(mock_s3):
         # /delete API가 에러 발생 시, 500 에러 코드와 에러 메시지가 반환되는지 확인
         assert response.status_code == 403
         assert "permission to access this resource" in response.json()["detail"].lower()
-
