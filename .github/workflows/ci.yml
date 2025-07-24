@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [ "feature" ]         # feature 브랜치에 push될 때 실행
+    branches: [ "main", "feature/managefile" ]         
   pull_request:
-    branches: [ "feature" ]         # feature 브랜치로 PR 생성/업데이트 시 실행
-  workflow_dispatch:                # 수동 실행 지원
+    branches: [ "main", "feature/managefile" ]         
+  workflow_dispatch:                
 
 jobs:
   build:
@@ -25,16 +25,27 @@ jobs:
       - name: Install uv audit
         run: uv pip install uv-audit
 
+      - name: Create .env file
+        run: |
+          echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" > .env
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+
       - name: Ruff Lint
         uses: astral-sh/ruff-action@v3
         with:
           args: check --output-format=github .
                                     # 5. Ruff로 코드 린트 검사
+                                    
+      - name : Ruff Fix
+        run: ruff format .
 
       - name: Ruff Format Check
         uses: astral-sh/ruff-action@v3
         with:
           args: format --check .    # 6. Ruff로 코드 포맷 검사
+        
 
       - name: Run uv audit
         run: uv run uv-audit               # 7. 패키지 취약점 점검
