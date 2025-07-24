@@ -6,6 +6,7 @@ from botocore.exceptions import ClientError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 from dotenv import load_dotenv
+from typing import List, Optional
 
 load_dotenv()
 # .env 파일에서 환경 변수 로드
@@ -101,3 +102,40 @@ async def delete_file(key: str):
         return {"message": "File deleted successfully"}
     except Exception as e:
         raise type_s3_exception(e)
+
+@files.get("/search")
+async def search_files(
+    # 파일이름, 확장자 입력
+    keywords: Optional[str] = Query(None, descripgion = "Search keywords for file names"),
+    extension : Optional[str] = Query(None, description="File extension to filter by")
+):
+    bucket_name = os.getenv('S3_BUCKET')
+    response = s3_client.list_objects_v2(Bucket=bucket_name)
+
+    # 불러오는 응답이 Contents 키를 포함하지 않을 경우 return 빈 리스트
+    if 'Contents' not in response:
+        return []
+
+    # Files라는 변수에 Contents 키의 값을 할당
+    Files = response['Contents']
+    result = []
+    for objects in Files:
+        file_name = objects['Key']
+
+        # 찾는 결과가 없을 경우 건너뛰기
+        if keywords and keywords.lower not in file_name.lower():
+            continue
+        # 파일 확장자가 pdf가 아닌 경우 건너뛰기
+        nomalized_file_name = "." + extension.lower().lstrip(".")
+        if not file_name.endswith(nomalized_file_name):
+            continue
+        # result라는 리스트에 파일 정보 append
+        result.append({
+            "file_name": file_name,
+            "last_modified": objects['LastModified'].isoformat(),
+            "size": objects['Size']
+        })
+    return result
+    except Exception as e:
+        raise type_s3_exception(e)
+    
