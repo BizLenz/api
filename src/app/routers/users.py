@@ -1,6 +1,6 @@
 # src/app/routers/users.py
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr
 from src.app.core.config import settings
 from jose import JWTError, jwt
