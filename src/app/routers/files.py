@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 from dotenv import load_dotenv
-from typing import List, Optional, Dict
+from typing import Optional, Dict
 
 load_dotenv()
 # .env 파일에서 환경 변수 로드
@@ -159,13 +159,13 @@ def select_files(
         for obj in page_items
     ]
 # 사용자 정보 반환(data, 파지네이션 정보 포함)
-return {
-    "data" : files_list,
-    "pagination": {
-        "current_page": page, # 현재 페이지 번호
-        "total_pages": total_pages, # 총 페이지 수
-        "total_files": total_files, # 전체 파일 수
-        "has_next": page < total_pages, # 다음 페이지가 있는지 여부
-        "has_prev": page > 1 # 이전 페이지가 있는지 여부
+    return {
+        "data" : files_list,
+        "pagination": {
+            "current_page": page, # 현재 페이지 번호
+            "total_pages": total_pages, # 총 페이지 수
+            "total_files": total_files, # 전체 파일 수
+            "has_next": page < total_pages, # 다음 페이지가 있는지 여부
+            "has_prev": page > 1 # 이전 페이지가 있는지 여부
+        }
     }
-}
