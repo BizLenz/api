@@ -136,8 +136,6 @@ async def search_files(
             "size": objects['Size']
         })
     return result
-        except Exception as e:
-            raise type_s3_exception(e)
 
 
 @files.get("/select")
@@ -145,7 +143,7 @@ def select_files(
     page : int = Query(1, ge=1), # 페이지 번호, 1부터 시작
     limit : int = Query(10,ge =1) # 페이지당 항목 수, 최소 1개 이상(10개씩)
 ) -> Dict:
-    Objects = s3_client/list_objects_v2(Bucket=os.getenv('S3_BUCKET'))
+    objects = s3_client.list_objects_v2(Bucket=os.getenv('S3_BUCKET'))
     contents = objects.get("Contents",[])
     total_files = len(contents)  # 전체 항목 수 계산
     total_pages = (total_files + limit -1) // limit # 총 페이지 수 계산
