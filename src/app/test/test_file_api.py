@@ -110,7 +110,7 @@ def test_select_files(mock_list_objects):
 
 def test_search_files(mock_s3):
     mock_s3.list_objects_v2.return_value = mock_s3_files
-    response = client.get("/search", params={"keywords": "test1", "extension": "pdf"})
+    response = client.get("/search", params={"keywords": "uploads/test1", "extension": "pdf"})
     
     # /search API가 정상 동작할 때, 검색 결과가 반환되는지 확인
     assert response.status_code == 200
