@@ -136,8 +136,10 @@ async def search_files(
             "size": objects['Size']
         })
     return result
-    except Exception as e:
-        raise type_s3_exception(e)   
+        except Exception as e:
+            raise type_s3_exception(e)
+
+
 @files.get("/select")
 def select_files(
     page : int = Query(1, ge=1), # 페이지 번호, 1부터 시작
