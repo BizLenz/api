@@ -1,12 +1,12 @@
 import os
 import boto3
 from uuid import uuid4
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from botocore.exceptions import ClientError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 from dotenv import load_dotenv
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 load_dotenv()
 # .env 파일에서 환경 변수 로드
@@ -139,3 +139,34 @@ async def search_files(
     except Exception as e:
         raise type_s3_exception(e)
     
+@files.get("/select")
+def select_files(
+    page : int = Query(1, ge=1), # 페이지 번호, 1부터 시작
+    limit : int = Query(10,ge =1) # 페이지당 항목 수, 최소 1개 이상(10개씩)
+) -> Dict:
+    Objects = s3_client/list_objects_v2(Bucket=os.getenv('S3_BUCKET'))
+    contents = objects.get("Contents",[])
+    total_files = len(contents)  # 전체 항목 수 계산
+    total_pages = (total_files + limit -1) // limit # 총 페이지 수 계산
+    offset = (page -1) * limit  # 현재 페이지에 해당하는 시작 인덱스
+    page_items = contents[offset : offset + limit]
+
+    files_list = [ # S3에서 가져오는 파일의 정보
+        {
+            "key": obj['Key'],
+            "last_modified": obj['LastModified'].isoformat(),
+            "size": obj['Size']
+        }
+        for obj in page_items
+    ]
+# 사용자 정보 반환(data, 파지네이션 정보 포함)
+return {
+    "data" : files_list,
+    "pagination": {
+        "current_page": page, # 현재 페이지 번호
+        "total_pages": total_pages, # 총 페이지 수
+        "total_files": total_files, # 전체 파일 수
+        "has_next": page < total_pages, # 다음 페이지가 있는지 여부
+        "has_prev": page > 1 # 이전 페이지가 있는지 여부
+    }
+}
