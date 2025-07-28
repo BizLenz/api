@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 # .env 파일 로드
 load_dotenv()
 
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "My Business Diagnosis API"
     SECRET_KEY: str
@@ -17,7 +18,7 @@ class Settings(BaseSettings):
 
     # DB 연결
     DATABASE_URL: str
-    
+
     COGNITO_REGION: str
     COGNITO_USER_POOL_ID: str
     COGNITO_CLIENT_ID: str
@@ -25,6 +26,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
 
 # 전역으로 쓸 수 있는 settings 객체
 settings = Settings()
