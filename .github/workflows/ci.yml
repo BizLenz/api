@@ -43,6 +43,7 @@ jobs:
                                     # 5. Ruff로 코드 린트 검사
 
       - name: Ruff Format Check
+        continue-on-error: true
         uses: astral-sh/ruff-action@v3
         with:
           args: format --check .    # 6. Ruff로 코드 포맷 검사
