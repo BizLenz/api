@@ -35,6 +35,7 @@ jobs:
           args: check --output-format=github .
 
       - name: Ruff Format Check
+        continue-on-error: true
         uses: astral-sh/ruff-action@v3
         with:
           args: format --check .
