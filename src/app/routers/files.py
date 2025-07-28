@@ -123,7 +123,7 @@ async def search_files(
         file_name = objects['Key']
 
         # 찾는 결과가 없을 경우 건너뛰기
-        if keywords and keywords.lower not in file_name.lower():
+        if keywords and keywords.lower() not in file_name.lower():
             continue
         # 파일 확장자가 pdf가 아닌 경우 건너뛰기
         nomalized_file_name = "." + extension.lower().lstrip(".")
