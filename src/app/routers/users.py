@@ -23,18 +23,22 @@ cognito_client = boto3.client("cognito-idp", region_name=COGNITO_REGION)
 # 메모리 캐시된 JWKS
 jwks = {}
 
+
 # 요청 스키마
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
 
+
 class TokenRequest(BaseModel):
     credentials: str
+
 
 class ForgottenPasswordRequest(BaseModel):
     email_info: EmailStr
     confirmation_code: str
     new_password: str
+
 
 # JWKS 키 가져오기
 async def get_public_keys():
@@ -45,11 +49,14 @@ async def get_public_keys():
             jwks = resp.json()
     return jwks
 
+
 # JWT 토큰 검증용 의존성
 async def verify_cognito_token(request: Request):
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+        raise HTTPException(
+            status_code=401, detail="Missing or invalid Authorization header"
+        )
 
     token = auth_header.split()[1]
     keys = await get_public_keys()
@@ -61,20 +68,21 @@ async def verify_cognito_token(request: Request):
                 "kid": key["kid"],
                 "use": key["use"],
                 "n": key["n"],
-                "e": key["e"]
+                "e": key["e"],
             }
             decoded_token = jwt.decode(
                 token,
                 public_key,
                 algorithms=["RS256"],
                 audience=CLIENT_ID,
-                issuer=ISSUER
+                issuer=ISSUER,
             )
             return decoded_token
         except JWTError:
             continue
 
     raise HTTPException(status_code=401, detail="Invalid Cognito token")
+
 
 # 회원가입
 @router.post("/signup")
@@ -84,39 +92,46 @@ def signup_user(user: SignupRequest):
             ClientId=CLIENT_ID,
             Username=user.email,
             Password=user.password,
-            UserAttributes=[{"Name": "email", "Value": user.email}]
+            UserAttributes=[{"Name": "email", "Value": user.email}],
         )
         return {
             "status": "success",
             "message": "User registered successfully",
-            "user_sub": response["UserSub"]
+            "user_sub": response["UserSub"],
         }
     except ClientError as e:
         raise HTTPException(status_code=400, detail=e.response["Error"]["Message"])
+
 
 # 로그인 (JWT 토큰 유효성 확인)
 @router.post("/login")
 async def login_with_JWTtoken(token_request: TokenRequest):
     token = token_request.credentials
-    decoded = await verify_cognito_token(Request(scope={"type": "http", "headers": [(b"authorization", f"Bearer {token}".encode())]}))
+    decoded = await verify_cognito_token(
+        Request(
+            scope={
+                "type": "http",
+                "headers": [(b"authorization", f"Bearer {token}".encode())],
+            }
+        )
+    )
     return {
         "status": "success",
         "message": "Login successful",
         "access_token": token,
-        "claims": decoded
+        "claims": decoded,
     }
+
 
 # 비밀번호 재설정 요청
 @router.post("/forgot-password")
 def forgot_password(req: ForgottenPasswordRequest):
     try:
-        cognito_client.forgot_password(
-            ClientId=CLIENT_ID,
-            Username=req.email_info
-        )
+        cognito_client.forgot_password(ClientId=CLIENT_ID, Username=req.email_info)
         return {"status": "success", "message": "Verification code sent to email"}
     except ClientError as e:
         raise HTTPException(status_code=400, detail=e.response["Error"]["Message"])
+
 
 # 비밀번호 재설정 완료
 @router.post("/reset-password")
@@ -126,7 +141,7 @@ def reset_password(req: ForgottenPasswordRequest):
             ClientId=CLIENT_ID,
             Username=req.email_info,
             ConfirmationCode=req.confirmation_code,
-            Password=req.new_password
+            Password=req.new_password,
         )
         return {"status": "success", "message": "Password reset successful"}
     except ClientError as e:
