@@ -6,24 +6,16 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
-# ----------------------------------------
-# src 폴더를 Python 경로에 추가
-# (alembic/env.py → parents[1] = api 폴더)
-# ----------------------------------------
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
+# ---- sys.path 추가와 .env 로드 ----
+BASE_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(BASE_DIR / "src"))
 
-# ----------------------------------------
-# .env 로드
-# ----------------------------------------
-env_path = Path(__file__).resolve().parents[1] / ".env"
+env_path = BASE_DIR / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# ----------------------------------------
-# Base, models import
-# ----------------------------------------
+# ---- Base와 models import ----
 from app.database import Base
-# models.py가 app/models/models.py 경로에 있으므로 이렇게 import
-from app.models import models
+from app.models import models  # noqa: F401
 
 # Alembic 설정 객체
 config = context.config
