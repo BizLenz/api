@@ -1,6 +1,7 @@
 # src/app/core/config.py
 
-from pydantic import BaseSettings, EmailStr
+from pydantic_settings import BaseSettings
+from pydantic import EmailStr
 from dotenv import load_dotenv
 
 # .env 파일 로드
@@ -13,10 +14,8 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1일
 
-    # 이메일 인증 or 유저 관련
     DEFAULT_ADMIN_EMAIL: EmailStr = "admin@example.com"
 
-    # DB 연결
     DATABASE_URL: str
 
     COGNITO_REGION: str
@@ -27,6 +26,9 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
+# ✅ 즉시 생성 제거
+# settings = Settings()
 
-# 전역으로 쓸 수 있는 settings 객체
-settings = Settings()
+# ✅ 지연 생성 방식으로 대체
+def get_settings():
+    return Settings()
