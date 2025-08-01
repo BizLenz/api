@@ -1,7 +1,10 @@
 import sys
 from pathlib import Path
 
-# sys.path.append는 맨 위로
+# Ruff E402 에러를 피하기 위해, import 전에 경로를 설정하는 코드를
+# import 구문보다 먼저 위치시킵니다.
+# 'src' 디렉토리를 Python 경로에 추가하여 alembic이 app.database와 app.models를
+# 찾을 수 있도록 합니다.
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 import os
@@ -11,18 +14,14 @@ from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-
-# sys.path.append는 모든 import 다음에 두지 말고, 여기서 실행
-sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
-
-# .env 로드
-env_path = Path(__file__).resolve().parents[1] / ".env"
-load_dotenv(dotenv_path=env_path)
-
 # Base와 models는 sys.path.append 이후에 import
 from app.database import Base
 from app.models import models  # noqa: F401
 
+
+# .env 로드
+env_path = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # Alembic 설정
 config = context.config
