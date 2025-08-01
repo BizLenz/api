@@ -2,10 +2,10 @@ name: CI
 
 on:
   push:
-    branches: [ "feature" ]         # feature 브랜치에 push될 때 실행
+    branches: [ "main", "feature/**" ]      # ✅ 수정됨: feature → main, feature/** 로 확장
   pull_request:
-    branches: [ "feature" ]         # feature 브랜치로 PR 생성/업데이트 시 실행
-  workflow_dispatch:                # 수동 실행 지원
+    branches: [ "main", "feature/**" ]      # ✅ 수정됨: PR 대상도 main 포함
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,10 +19,10 @@ jobs:
       - name: Install Python 3.11 with uv
         run: uv python install 3.11
 
-      - name: Sync dependencies
-        run: uv sync
+      - name: Install dependencies from requirements.txt
+        run: uv pip install -r requirements.txt
 
-      - name: Create .env file               # ✅ 추가됨: GitHub Secret 기반으로 .env 파일 생성
+      - name: Create .env file
         run: echo "${{ secrets.ENV_FILE }}" | tr '\n' '\n' > .env
 
       - name: Install uv audit
@@ -36,7 +36,7 @@ jobs:
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
 
       - name: Ruff Lint
-        continue-on-error: true   # ✅ 실패해도 멈추지 않도록 설정
+        continue-on-error: true
         uses: astral-sh/ruff-action@v3
         with:
           args: check --output-format=github .
