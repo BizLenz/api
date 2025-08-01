@@ -3,6 +3,7 @@ import unittest.mock as mock
 from unittest.mock import patch
 import pytest
 import botocore.exceptions
+import datetime
 
 from app.main import app
 
@@ -71,3 +72,51 @@ def test_upload_file_error(mock_s3):
         # /delete API가 에러 발생 시, 500 에러 코드와 에러 메시지가 반환되는지 확인
         assert response.status_code == 403
         assert "permission to access this resource" in response.json()["detail"].lower()
+
+mock_s3_files = {
+    "Contents": [
+        {
+            "Key": "uploads/test1.pdf",
+            "LastModified": datetime.datetime(2023, 10, 1, 12, 0, 0),
+            "Size": 123456
+        },
+        {
+            "Key": "uploads/test2.pdf",
+            "LastModified": datetime.datetime(2023, 10, 2, 12, 0, 0),
+            "Size": 654321
+        },
+        {
+            "Key": "uploads/test3.pdf",
+            "LastModified": datetime.datetime(2023, 10, 3, 12, 0, 0),
+            "Size": 789012
+        }
+    ]
+}
+
+@patch("app.routers.files.s3_client.list_objects_v2")
+def test_select_files(mock_list_objects):
+    mock_list_objects.return_value = mock_s3_files
+    response = client.get("/select", params={"page": 1, "limit": 2})
+    
+    # /select API가 정상 동작할 때, 파일 목록이 반환되는지 확인
+    assert response.status_code == 200
+    data = response.json()
+    assert "data" in data
+    assert "pagination" in data
+    assert len(data["data"]) == 2 # limit 대로 파일 갯수를 잘라서 반환하는지 확인
+    assert data["pagination"]["current_page"] == 1
+    assert data["pagination"]["total_files"] == 3
+
+
+def test_search_files(mock_s3):
+    mock_s3.list_objects_v2.return_value = mock_s3_files
+    response = client.get("/search", params={"keywords": "test1", "extension": "pdf"})
+    
+    # /search API가 정상 동작할 때, 검색 결과가 반환되는지 확인
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 1  # test1 단 하나의 파일이 검색 결과에 포함되어야 함
+    assert data[0]["file_name"] == "uploads/test1.pdf" # 파일 명이 예상대로인지 확인
+    assert data[0]["size"] == 123456 # 사이즈도 맞는 지 확인 
+    
