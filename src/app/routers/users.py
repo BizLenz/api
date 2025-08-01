@@ -2,7 +2,6 @@
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr
-from app.core.config import get_settings
 from jose import JWTError, jwt
 import httpx
 import boto3

@@ -26,8 +26,10 @@ class Settings(BaseSettings):
         env_file = ".env"
         env_file_encoding = "utf-8"
 
+
 # ✅ 즉시 생성 제거
 # settings = Settings()
+
 
 # ✅ 지연 생성 방식으로 대체
 def get_settings():
