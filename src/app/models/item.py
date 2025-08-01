@@ -1,1 +1,1 @@
-from .models import Base
+# from app.database import Base  # noqa: F401
