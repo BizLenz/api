@@ -19,8 +19,8 @@ jobs:
       - name: Install Python 3.11 with uv
         run: uv python install 3.11
 
-      - name: Install dependencies
-        run: uv pip install -r requirements.txt
+      - name: Sync dependencies
+        run: uv sync
 
       - name: Create .env file               # ✅ 추가됨: GitHub Secret 기반으로 .env 파일 생성
         run: echo "${{ secrets.ENV_FILE }}" | tr '\n' '\n' > .env
