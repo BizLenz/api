@@ -6,8 +6,9 @@ from jose import JWTError, jwt
 import httpx
 import boto3
 from botocore.exceptions import ClientError
-from app.core.config import settings
+from app.core.config import get_settings
 
+settings = get_settings()
 router = APIRouter()
 
 # Cognito 기본 설정
