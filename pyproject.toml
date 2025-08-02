@@ -12,3 +12,9 @@ dependencies = [
 ]
 
 [tool.uv]  # uv 사용 시 필요
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+include = ["src/**/*.py", "tests/**/*.py"]
+exclude = ["venv", "__pycache__"]

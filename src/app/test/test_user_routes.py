@@ -17,6 +17,7 @@ os.environ["APP_CLIENT_ID"] = "test-client"
 # ✅ transport 객체 미리 생성
 transport = ASGITransport(app=app)
 
+
 # 회원가입 테스트
 @pytest.mark.asyncio
 @patch("app.routers.users.cognito_client.sign_up")
@@ -25,7 +26,8 @@ async def test_signup_user(mock_sign_up):
 
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         response = await ac.post(
-            "/auth/signup", json={"email": "test@example.com", "password": "password123!"}
+            "/auth/signup",
+            json={"email": "test@example.com", "password": "password123!"},
         )
 
     assert response.status_code == status.HTTP_200_OK
