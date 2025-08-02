@@ -10,5 +10,3 @@ dependencies = [
 ]
 
 [tool.uv]  # uv 사용 시 필요
-[too.pytest.ini_options]
-addopts="-v"
