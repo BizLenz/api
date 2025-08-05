@@ -68,7 +68,7 @@ def type_s3_exception(e: Exception):
             raise HTTPException(status_code=403, detail=error_message)
         elif error_code in ["InvalidRequest"]:
             raise HTTPException(status_code=400, detail=error_message)
-        else:
+        else:yysyyyyyy
             raise HTTPException(status_code=500, detail=error_message)
     else:
         raise HTTPException(status_code=500, detail=str(e))
