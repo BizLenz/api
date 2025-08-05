@@ -25,7 +25,7 @@ async def request_evaluation(request: EvaluationReques=Depends()):
     3. Gemini 분석 결과 가져오기
     """
     # 클라이언트 데이터 결합
-    full_prompt = ㄹ"{base_prompt}\n기준:{request.evaluation_criteria}\n추가정보:{request.additional_info}"
+    full_prompt = f"{base_prompt}\n기준:{request.evaluation_criteria}\n추가정보:{request.additional_info}"
 
     gateway_url="게이트웨이 url"
     async with httpx.AsyncClient() as client:
