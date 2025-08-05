@@ -14,6 +14,7 @@ def load_prompts():
     with open(PROMPT_FILE, "r") as f:
         return json.load(f)
 
+gateway_url="게이트웨이 url"
 
 @router.post("/evaluate", reponse_model=EvaluationRequest)
 async def request_evaluation(request: EvaluationReques=Depends()):
@@ -26,8 +27,7 @@ async def request_evaluation(request: EvaluationReques=Depends()):
     """
     # 클라이언트 데이터 결합
     full_prompt = f"{base_prompt}\n기준:{request.evaluation_criteria}\n추가정보:{request.additional_info}"
-
-    gateway_url="게이트웨이 url"
+    
     async with httpx.AsyncClient() as client:
         response = await client.post(gateway_url,json=:"prompt":full_prompt)
         if response.status_code != 200:
@@ -37,6 +37,18 @@ async def request_evaluation(request: EvaluationReques=Depends()):
 
     return EvaluationResponse(
         result = analysis,
-        score=8-,
+        score=80,
         suggestions=["개선점1","개선점 2"]
     )
+
+@router.post("/industry-data")
+async def get_industry_data(data: RequestData = Body(...)):
+    try :
+        response = requests.post(gateway_url, json=data.dict(),timeout=10)
+        response.raise_for_status()
+        return reponse.json()
+
+    except requests.exceptions.RequestException as e:
+        return {"error":f"Failed to call API Gateway: {str(e)}"}
+
+

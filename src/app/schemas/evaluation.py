@@ -1,5 +1,6 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, Body
 from typing import Optional, List 
+import requests
 
 class EvaluationRequest(BaseModel):
    """
@@ -65,3 +66,8 @@ class EvaluationResponse(BaseModel):
                 "error": None
             }
         }
+
+class RequestData(BaseModel):
+    industry: str = "업종"
+    keyword: str = "시장상황"
+    opinion: str = "전문적 의견"
