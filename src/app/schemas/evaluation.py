@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, Body
 from typing import Optional, List 
 import requests
+import json
 
 class EvaluationRequest(BaseModel):
    section_name: str = Field(
@@ -59,18 +60,39 @@ class EvaluationResponse(BaseModel):
             }
         }
 
-class RequestData(BaseModel):
-    result: str =Field(..., description="전체 분석 결과")
-    sections_evaluated: List[str] = Field(..., description = "평가된 섹션 목록")
-    total_max_score: int = Field(..., description="전체 최대 점수")
-    evaluation_type: str = Field(..., description="수행된 평가 유형")
 
+class MarketInformation(BaseModel):
+    # 시장 규모 
+    marker_size: Optional[float] = Field(None, description="시장 규모 (억원 단위)")
+    #성장률
+    growth_rate: Optional[float] = Field(None, description = "성장률 (%)")
+    # 시장 트렌드
+    market_trend: List[str] = Field(default_factory=list, description = "시장 트렌드 키워드")
+    # 주요 경쟁사
+    competitors: List[str] = Field(default_factory=list, description="주요 경쟁사")
+    #타겟 고객 정보
+    persona: Optional[Dict[str,Any]]= Field(None, description="타겟 고객 정보")
+    #관련 규제 정보
+    regulations: Optional[Dict[str,Any]] = Field(None, description="관련 규제 정보")
+    #계절성 요인
+    seasonal_factors: Optional[Dict[str,Any]]=Field(None,description="계절성 요인")
+
+
+class RequestindustryData(BaseModel):
+    request_id: Optional[str] = Field(None, description = "요청 ID")
+    timestamp: Optional[str] = Field(None, description = "요청 시간")
+
+    # 시장 데이터 (JSONB 형식)
+    market_data: MarketInformation = Field(..., description="시장 데이터")
+    # 추가 메타데이터
+    additional_data: Optional[Dict[str,Any]] = Field(..., description="추가 데이터 (자유 형식 JSONB)")
+
+    # 검색 키워드
+    keyword: Optional[str] = Field("marktet",description="검색 키워드")
+
+    @validator('industry_info')
+    
     class Config:
         schema_extra{
-            "example": {
-                "result": "종합 평가 결과: 우수한 시장 분석과 전략이 돋보입니다...",
-                "sections_evaluated": ["3.2. 시장진입 및 성과창출 전략"],
-                "total_max_score": 10,
-                "evaluation_type": "comprehensive"
-            }
+            
         }
