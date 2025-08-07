@@ -1,5 +1,5 @@
-from fastapi imprt APIRouter, Depends
-from app.schemas.evaluation import EvaluationRequest, EvaluationResponse
+from fastapi import APIRouter, Depends, HTTPException, Body
+from app.schemas.evaluation import EvaluationRequest, EvaluationResponse, RequestindustryData, ResponseindustryData
 import httpx 
 import json
 from pathlib import Path
@@ -8,6 +8,7 @@ from google.generativeai as genai
 #google API 키 설정
 from app.core.config import API_KEY
 genai.configure(api_key=API_KEY)
+import requests
 
 # API 인스턴스 생성(analysis로 URL 그룹화 및 Swagger UI 분류)
 router = APIRouter(prefix="/analysis",tag=["analysis"]) 
@@ -104,13 +105,33 @@ async def request_evaluation(request: EvaluationRequest):
 
 
 @router.post("/industry-data")
-async def get_industry_data(data: RequestData = Body(...)):
+async def get_industry_data(data: RequestindustryData = Body(...)):
+
+    payload={
+        "keyword":data.keyword,
+        "market_data": data.market_data.dict()
+        "additional_data": data.additional_data
+    }
+
     try :
         response = requests.post(gateway_url, json=data.dict(),timeout=10)
         response.raise_for_status()
-        return reponse.json()
+        result = response.json()
+
+        return ResponseindustryData(
+            marketStatus=result.get('marketStatus','No data')
+            expertOpinion= result.get('expertOpinion','No opinion')
+            processed_data={
+                "original_market_data": data.market_data.dict()
+            }
+        ) 
+    except requests.exceptions.RequestException as e:
+        return Reponse(
+            marketStatus="Error fetching data"
+            expertOpinion=f"Failed to call API Gateway: {str(e)}"
+            processed_data=None
+        )
+
 
     except requests.exceptions.RequestException as e:
-        return {"error":f"Failed to call API Gateway: {str(e)}"}
-
-
+        raise HTTPException(status_code=500, detail=f"API Gateway 호출 실패: {str(e)}")

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, Body
-from typing import Optional, List 
-import requests
+from typing import Optional, List, Dict, Any
+from pydantic import validator
 import json
 
 class EvaluationRequest(BaseModel):
@@ -62,7 +62,7 @@ class EvaluationResponse(BaseModel):
 
 
 class MarketInformation(BaseModel):
-    # 시장 규모 
+    # 시장 규모
     marker_size: Optional[float] = Field(None, description="시장 규모 (억원 단위)")
     #성장률
     growth_rate: Optional[float] = Field(None, description = "성장률 (%)")
@@ -77,22 +77,31 @@ class MarketInformation(BaseModel):
     #계절성 요인
     seasonal_factors: Optional[Dict[str,Any]]=Field(None,description="계절성 요인")
 
+    @validator('marker_size')
+    def market_size_must_be_positive(cls, value):
+        if value is not None and value <= 0:
+            raise ValueError('시장 규모는 0보다 커야 합니다.')
+        return value
 
 class RequestindustryData(BaseModel):
-    request_id: Optional[str] = Field(None, description = "요청 ID")
-    timestamp: Optional[str] = Field(None, description = "요청 시간")
-
     # 시장 데이터 (JSONB 형식)
     market_data: MarketInformation = Field(..., description="시장 데이터")
     # 추가 메타데이터
-    additional_data: Optional[Dict[str,Any]] = Field(..., description="추가 데이터 (자유 형식 JSONB)")
-
+    additional_data: Optional[Dict[str, Any]] = Field(None, description="추가 데이터 (자유 형식 JSONB)")
     # 검색 키워드
     keyword: Optional[str] = Field("marktet",description="검색 키워드")
 
-    @validator('industry_info')
-    
-    class Config:
-        schema_extra{
-            
-        }
+    @validator('market_data')
+    def validate_market_data(cls,v):
+        if v.marker_size is not None and v.marker_size <= 0:
+            raise ValueError('시장 규모는 0보다 커야 합니다.')
+        if v.growth_rate is not None and  not (=100<=v.growth_rate<=1000):
+            raise ValueError('성장률은 -100%에서 1000% 사이여야 합니다')
+        return v
+
+# 응답 모델 구조 정의
+class ResponseindustryData(BaseModel):
+    industry:str
+    marketStatus: str
+    expertOpinion: str
+    processed_data: Optional[Dict[str,Any]] = None
