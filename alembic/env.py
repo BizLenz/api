@@ -1,10 +1,6 @@
 import sys
 from pathlib import Path
 
-# Ruff E402 에러를 피하기 위해, import 전에 경로를 설정하는 코드를
-# import 구문보다 먼저 위치시킵니다.
-# 'src' 디렉토리를 Python 경로에 추가하여 alembic이 app.database와 app.models를
-# 찾을 수 있도록 합니다.
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 import os
@@ -17,7 +13,6 @@ from alembic import context
 # Base와 models는 sys.path.append 이후에 import
 from app.database import Base
 from app.models import models  # noqa: F401
-
 
 # .env 로드
 env_path = Path(__file__).resolve().parents[1] / ".env"
@@ -32,15 +27,46 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
-# DB URL
-db_user = os.getenv("DB_USER")
-db_pass = os.getenv("DB_PASSWORD")
-db_host = os.getenv("DB_HOST")
-db_port = os.getenv("DB_PORT")
-db_name = os.getenv("DB_NAME")
-DATABASE_URL = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+# 🔧 수정된 부분: 기본값과 검증 추가
+def get_database_url() -> tuple[str, dict]:
+    """환경변수로부터 DATABASE_URL을 생성하고 검증합니다."""
+    
+    # 기본값과 함께 환경변수 읽기
+    db_user = os.getenv("DB_USER", "postgres")
+    db_pass = os.getenv("DB_PASSWORD", "")
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = os.getenv("DB_PORT", "5432")
+    db_name = os.getenv("DB_NAME", "postgres")
+    
+    # 필수 환경변수 검증 (실제 값이 있는지 확인)
+    if not os.getenv("DB_HOST"):  # 기본값이 아닌 실제 환경변수 확인
+        raise ValueError("DB_HOST 환경변수는 반드시 설정해야 합니다")
+    
+    # DATABASE_URL 생성
+    database_url = f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+    
+    # 연결 정보도 함께 반환
+    db_info = {
+        'user': db_user,
+        'host': db_host,
+        'port': db_port,
+        'name': db_name
+    }
+    
+    return database_url, db_info
 
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# DATABASE_URL 설정
+try:
+    DATABASE_URL, db_info = get_database_url()
+    config.set_main_option("sqlalchemy.url", DATABASE_URL)
+    print(f"데이터베이스 연결 설정 완료: {db_info['user']}@{db_info['host']}:{db_info['port']}/{db_info['name']}")
+except ValueError as e:
+    print(f"환경변수 설정 오류: {e}")
+    print(".env 파일을 확인하고 필수 환경변수를 설정해주세요.")
+    sys.exit(1)
+except Exception as e:
+    print(f"예상치 못한 오류: {e}")
+    sys.exit(1)
 
 
 def run_migrations_offline() -> None:
@@ -58,17 +84,23 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    try:
+        connectable = engine_from_config(
+            config.get_section(config.config_ini_section, {}),
+            prefix="sqlalchemy.",
+            poolclass=pool.NullPool,
+        )
 
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        with connectable.connect() as connection:
+            context.configure(connection=connection, target_metadata=target_metadata)
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
+                
+    except Exception as e:
+        print(f"데이터베이스 연결 실패: {e}")
+        print("데이터베이스 서버 상태와 연결 정보를 확인해주세요.")
+        raise
 
 
 if context.is_offline_mode():
