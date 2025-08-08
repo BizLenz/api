@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "api"
 version = "0.1.0"
@@ -12,9 +16,9 @@ dependencies = [
     "pydantic",
     "uvicorn",
     "httpx",
-    "botocore"
+    "botocore",
+    "aiofiles"
 ]
 
-[tool.uv]  # uv 사용 시 필요
-[too.pytest.ini_options]
-addopts="-v"
+[tool.pytest.ini_options]
+addopts = "-v"
