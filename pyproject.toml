@@ -15,6 +15,7 @@ dependencies = [
     "botocore"
 ]
 
-[tool.uv]  # uv 사용 시 필요
-[too.pytest.ini_options]
-addopts="-v"
+[tool.uv]
+
+[tool.pytest.ini_options]
+addopts = "-v"
