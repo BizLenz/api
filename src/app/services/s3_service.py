@@ -7,8 +7,8 @@ import os
 import hashlib
 import json
 import asyncio
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Tuple
+from datetime import datetime
+from typing import Dict, Any
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
