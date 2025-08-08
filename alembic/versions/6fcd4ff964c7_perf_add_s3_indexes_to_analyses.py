@@ -19,6 +19,7 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+<<<<<<< HEAD
     """Add S3 performance optimization indexes."""
     
     # 1. S3 키별 빠른 검색 인덱스
@@ -114,3 +115,12 @@ def downgrade() -> None:
     op.drop_index('idx_analyses_file_size_desc', 'analyses')
     op.drop_index('idx_analyses_upload_status', 'analyses')
     op.drop_index('idx_analyses_s3_key', 'analyses')
+=======
+    """Upgrade schema."""
+    pass
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    pass
+>>>>>>> ed2edc1cbae025807315b6aad24731538ef45bf3
