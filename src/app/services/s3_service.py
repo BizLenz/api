@@ -5,25 +5,12 @@ Gemini 분석 결과를 AWS S3에 안전하게 저장하고 관리하는 서비�
 
 import os
 import hashlib
-<<<<<<< HEAD
 import json
 import asyncio
-=======
-import mimetypes
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Tuple
-import json
-import asyncio
-from pathlib import Path
->>>>>>> ed2edc1cbae025807315b6aad24731538ef45bf3
 
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 from botocore.config import Config
-<<<<<<< HEAD
-=======
-import aiofiles
->>>>>>> ed2edc1cbae025807315b6aad24731538ef45bf3
 
 
 class S3Manager:
