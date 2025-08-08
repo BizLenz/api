@@ -1,4 +1,4 @@
-"""update tables structure
+"""refactor: update tables structure
 
 Revision ID: 43af05e94fe9
 Revises: da7cc34b7b64
