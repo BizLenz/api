@@ -46,4 +46,8 @@ class Settings(BaseSettings):
    presigned_url_expiration: int = Field(default=3600, env="PRESIGNED_URL_EXPIRATION")  # 1시간
    presigned_url_method: str = Field(default="GET", env="PRESIGNED_URL_METHOD")  # GET, PUT, POST
 
-   
+   class Config:
+   # 루트 디렉토리에 있는 .env 파일을 읽어 환경변수로 반영
+   env_file = ".env"
+   env_file_encoding = "utf-8"
+   case_sensitive = True
