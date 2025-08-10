@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, validator
 from dotenv import load_dotenv
 from typing import Optional, Dict
+from app.schemas.file_schemas import FileUploadRequest, FileUploadResponse
+from sqlalchemy.orm import Session
 
 
 load_dotenv()
@@ -45,18 +47,6 @@ s3_client = boto3.client(
 )
 
 
-# pydantic 모델의 요청 형식 정의
-class FileUploadRequest(BaseModel):
-    filename: str
-    filetype: str
-
-    # 파일 타입 체킹
-    @validator('filetype')
-    def validate_filetype(cls, v):
-        if v.lower() != 'pdf':
-            raise ValueError('Not supplied file type')
-        return v
-
 
 def type_s3_exception(e: Exception):
     if isinstance(e, ClientError):
@@ -76,9 +66,9 @@ def type_s3_exception(e: Exception):
 
 
 @files.post("/upload")
-async def upload_file(file: FileUploadRequest):
+async def upload_file(file:FileUploadRequest):
     try:
-        key = f"uploads/{uuid4()}_{file.filename}"
+        key = f"uploads/{uuid4()}_{file.file_name}"
         url = s3_client.generate_presigned_url(
             'put_object',  # S3에 파일 업로드 명령어
             Params={  # 버킷 파라미터

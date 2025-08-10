@@ -22,7 +22,7 @@ class Settings(BaseSettings):
    aws_region: Optional[str] = Field(default=None, env = "AWS_REGION")
    aws_account_id: Optional[str] = Field(default=None, env = "AWS_ACCOUNT_ID")
 
-   #AWS APIA Gateway 설정
+   #AWS API Gateway 설정
    api_gateway_url: Optional[str] = Field(debug=True, env="API_GATEWAY_URL")
    api_gateway_stage: str = Field(default="dev", env="API_GATEWAY_STAGE") # dev, staging, prod
    api_gateway_api_key: Optional[str] = Field(default=None, env="API_GATEWAY_API_KEY")
@@ -35,7 +35,15 @@ class Settings(BaseSettings):
    api_cors_allow_credentials: bool = Field(default=True, env="API_CORS_ALLOW_CREDENTIALS")
    api_cors_max_age: int = Field(default=86400, env="API_CORS_MAX_AGE")  # 24시간
 
-   # AWS S3 설정
-   s3_bucket_name: Optional[str] = Field(default=None, env="S3_BUCKET") # S3 버킷 이름
-   s3_upload_folder: str = Field(default="uploads", env="S3_UPLOAD_FOLDER") # 업로드 폴더
-   s3_processed_folder: str = Field(default="processed", env="S3_PROCESSED_FOLDER") # 처리된 파일 폴더
+    # AWS S3 설정
+   s3_bucket_name: str = Field(default="bizlenz-files", env="S3_BUCKET_NAME")
+   s3_upload_folder: str = Field(default="uploads", env="S3_UPLOAD_FOLDER")
+   s3_processed_folder: str = Field(default="processed", env="S3_PROCESSED_FOLDER")
+   s3_temp_folder: str = Field(default="temp", env="S3_TEMP_FOLDER")
+   s3_max_file_size: int = Field(default=50 * 1024 * 1024, env="S3_MAX_FILE_SIZE")  # 50MB
+
+   # S3 Pre-signed URL 설정
+   presigned_url_expiration: int = Field(default=3600, env="PRESIGNED_URL_EXPIRATION")  # 1시간
+   presigned_url_method: str = Field(default="GET", env="PRESIGNED_URL_METHOD")  # GET, PUT, POST
+
+   
