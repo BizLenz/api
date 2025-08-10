@@ -3,10 +3,14 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "api"
+name = "bizlenz-api"
 version = "0.1.0"
-description = "BackEnd project"
+description = "BizLenz AI Business Plan Analysis API"
+readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    {name = "BizLenz Team", email = "team@bizlenz.com"}
+]
 
 dependencies = [
     "pytest>=7.0.0",
