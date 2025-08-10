@@ -1,8 +1,12 @@
 # src/app/main.py
-
-
 from fastapi import FastAPI
-from src.app.routers import users
+from app.routers import files
 
 app = FastAPI()
-app.include_router(users.router, prefix="/auth", tags=["Authentication"])
+
+app.include_router(files.router)
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
