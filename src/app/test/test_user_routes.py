@@ -1,92 +1,58 @@
-# src/app/test/test_user_routes.py
+name: CI
 
-import os
-import pytest
-from httpx import AsyncClient, ASGITransport
-from fastapi import status
-from unittest.mock import patch, AsyncMock
-from app.main import app
+on:
+  push:
+    branches: [ "main", "feature/**" ]
+  pull_request:
+    branches: [ "main", "feature/**" ]
+  workflow_dispatch:
 
-# ✅ 환경변수 먼저 설정
-os.environ["SECRET_KEY"] = "test-secret-key"
-os.environ["DATABASE_URL"] = "sqlite:///./test.db"
-os.environ["COGNITO_REGION"] = "ap-northeast-2"
-os.environ["USER_POOL_ID"] = "test-pool"
-os.environ["APP_CLIENT_ID"] = "test-client"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-# ✅ transport 객체 미리 생성
-transport = ASGITransport(app=app)
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
+      - name: Install Python 3.11 with uv
+        run: uv python install 3.11
 
-# 회원가입 테스트
-@pytest.mark.asyncio
-@patch("app.routers.users.cognito_client.sign_up")
-async def test_signup_user(mock_sign_up):
-    mock_sign_up.return_value = {"UserSub": "fake-user-sub-id"}
+      - name: Sync dependencies
+        run: uv sync
 
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.post(
-            "/auth/signup",
-            json={"email": "test@example.com", "password": "password123!"},
-        )
+      - name: Create .env file (from ENV_FILE secret)
+        run: echo "${{ secrets.ENV_FILE }}" | tr '\n' '\n' > .env
 
-    assert response.status_code == status.HTTP_200_OK
-    assert response.json()["status"] == "success"
-    assert "user_sub" in response.json()
+      - name: Install uv audit
+        run: uv pip install uv-audit
 
+      - name: Create .env file (AWS credentials)
+        run: |
+          echo "S3_BUCKET=${{ secrets.S3_BUCKET }}" > .env
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
 
-# 로그인 테스트 - JWT 검증 모킹
-@pytest.mark.asyncio
-@patch("app.routers.users.jwt.decode")
-@patch("app.routers.users.get_public_keys", new_callable=AsyncMock)
-async def test_login_user(mock_get_keys, mock_jwt_decode):
-    mock_get_keys.return_value = {
-        "keys": [{"kid": "1234", "kty": "RSA", "use": "sig", "n": "abc", "e": "AQAB"}]
-    }
-    mock_jwt_decode.return_value = {"sub": "user-id", "email": "test@example.com"}
+      - name: Ruff Lint
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: check --output-format=github .
 
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.post("/auth/login", json={"credentials": "fake.jwt.token"})
+      - name: Ruff Fix
+        run: ruff format .
 
-    assert response.status_code == 200
-    assert response.json()["status"] == "success"
+      - name: Ruff Format Check
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: format --check .
 
+      - name: Run uv audit
+        run: uv run uv-audit
 
-# 비밀번호 재설정 요청
-@pytest.mark.asyncio
-@patch("app.routers.users.cognito_client.forgot_password")
-async def test_forgot_password(mock_forgot_password):
-    mock_forgot_password.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}
+      - name: Run Pytest
+        run: uv run pytest
 
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.post(
-            "/auth/forgot-password",
-            json={
-                "email_info": "test@example.com",
-                "confirmation_code": "123456",
-                "new_password": "new-password123!",
-            },
-        )
-
-    assert response.status_code == 200
-    assert "message" in response.json()
-
-
-# 비밀번호 재설정 완료
-@pytest.mark.asyncio
-@patch("app.routers.users.cognito_client.confirm_forgot_password")
-async def test_reset_password(mock_reset):
-    mock_reset.return_value = {"ResponseMetadata": {"HTTPStatusCode": 200}}
-
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
-        response = await ac.post(
-            "/auth/reset-password",
-            json={
-                "email_info": "test@example.com",
-                "confirmation_code": "123456",
-                "new_password": "new-password123!",
-            },
-        )
-
-    assert response.status_code == 200
-    assert "message" in response.json()
+      - name: Build Docker image
+        run: docker build -t my-app:${{ github.sha }} .
