@@ -17,8 +17,11 @@ dependencies = [
     "uvicorn",
     "httpx",
     "botocore",
-    "aiofiles"
-]
+    "aiofiles",
+    "sqlalchemy",
+    "alembic",
+    "psycopg2-binary"
+] 
 
 [tool.pytest.ini_options]
 addopts = "-v"

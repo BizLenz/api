@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Query
 from botocore.exceptions import ClientError
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from typing import Optional, Dict
 
@@ -50,7 +50,7 @@ class FileUploadRequest(BaseModel):
     filetype: str
 
     # 파일 타입 체킹
-    @validator('filetype')
+    @field_validator("filetype")
     def validate_filetype(cls, v):
         if v.lower() != 'pdf':
             raise ValueError('Not supplied file type')
