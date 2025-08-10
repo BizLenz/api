@@ -25,7 +25,11 @@ dependencies = [
     "sqlalchemy",
     "alembic",
     "psycopg2-binary"
-] 
+]
 
 [tool.pytest.ini_options]
 addopts = "-v"
+
+# ✨ 아래 섹션을 추가하여 빌드 경고를 해결합니다.
+[tool.ruff]
+target-version = "py311"
