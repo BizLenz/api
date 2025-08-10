@@ -1,20 +1,16 @@
-# reset_db.py (최종 CASCADE 버전)
+# reset_db.py (최종 CASCADE 버전 - 빌드 오류 수정)
 
 import os
 import sys
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
+# .env 파일에서 환경 변수 로드
+load_dotenv()
+
 # 'src' 폴더를 파이썬 경로에 동적으로 추가하여 'from app...' import가 가능하게 함
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.join(project_root, 'src'))
-
-# 이제 애플리케이션 모듈을 가져옵니다.
-# 이 방법에서는 Base가 직접 필요 없지만, 경로 확인 차원에서 남겨둡니다.
-from app.models.models import Base 
-
-# .env 파일에서 환경 변수 로드
-load_dotenv(os.path.join(project_root, '.env'))
 
 # 데이터베이스 연결 URL 생성
 DB_USER = os.getenv("DB_USER")
@@ -55,7 +51,10 @@ try:
         # 스키마 변경사항을 완전히 적용하기 위해 커밋합니다.
         connection.commit()
         
-        print("\n✅ 데이터베이스가 완전히 초기화되었습니다. 'alembic upgrade head'를 실행하여 DB를 다시 만드세요.")
+        print("\n✅ 데이터베이스가 완전히 초기화되었습니다.")
+        print("다음 명령어를 실행하여 DB를 다시 만드세요:")
+        print("  alembic upgrade head")
 
 except Exception as e:
     print(f"❌ 오류가 발생했습니다: {e}")
+    sys.exit(1)
