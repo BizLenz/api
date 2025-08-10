@@ -8,6 +8,7 @@ from pydantic import BaseModel, validator
 from dotenv import load_dotenv
 from typing import Optional, Dict
 
+
 load_dotenv()
 # .env 파일에서 환경 변수 로드
 required_env_vars = [
