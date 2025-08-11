@@ -1,18 +1,24 @@
-import os
-import boto3
-from uuid import uuid4
-from fastapi import FastAPI, HTTPException, Query
-from botocore.exceptions import ClientError
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, validator
-from dotenv import load_dotenv
-from typing import Optional, Dict
-from app.schemas.file_schemas import FileUploadRequest, FileUploadResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from app.core.config import Settings
+from typing import Optional, Dict
+from botocore.exceptions import ClientError
+from uuid import uuid4
+from app.schemas.file_schemas import FileUploadRequest, FileUploadResponse
+from app.core.config import settings   # 환경설정 객체 import
+import boto3
+
+# FastAPI 라우터 객체 생성
+files = APIRouter()
+
+# CORS 설정
+origins = [
+    "http://localhost:3000",  # 로컬 개발 환경 허용
+]
 
 
-# 한글 주석: 환경설정 정보로 S3 클라이언트를 생성합니다.
+# 환경설정 정보로 S3 클라이언트를 생성
 s3_client = boto3.client(
     "s3",
     aws_access_key_id=settings.aws_access_key_id,
@@ -20,156 +26,139 @@ s3_client = boto3.client(
     region_name=settings.aws_region
 )
 
-# 오류 체크
-missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-if missing_vars:
-    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
-
-files = FastAPI()
-
-origins = [
-    "http://localhost:3000",  # 로컬 개발 환경
-]
-
-files.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,  # CORS 허용할 오리진 설정
-    allow_credentials=True,
-    allow_methods=["*"],  # 모든 HTTP 메서드 허용
-    allow_headers=["*"],  # 모든 헤더 허용
-)
-
-
-
+# S3 관련 오류 처리 함수
 def type_s3_exception(e: Exception):
     if isinstance(e, ClientError):
         error_code = e.response['Error']['Code']
         error_message = e.response['Error']['Message']
-
         if error_code in ["NoSuchKey", "NotFound"]:
             raise HTTPException(status_code=404, detail=error_message)
-        elif error_code in ["AccessDenied"]:
+        elif error_code == "AccessDenied":
             raise HTTPException(status_code=403, detail=error_message)
-        elif error_code in ["InvalidRequest"]:
+        elif error_code == "InvalidRequest":
             raise HTTPException(status_code=400, detail=error_message)
-        else:yysyyyyyy
+        else:
             raise HTTPException(status_code=500, detail=error_message)
     else:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@files.post("/upload", response_model=dict)  # presigned URL만 반환
+# PDF Presigned URL 발급 엔드포인트
+@files.post("/upload", response_model=dict)
 async def upload_file(file: FileUploadRequest):
     """
     PDF 파일 presigned URL 발급 엔드포인트
-    - 사용자는 presigned URL로 S3 업로드 실행
-    - Pydantic 기반 request validation
-    - 예외 발생 시 FastAPI 예외 반환
+    - presigned URL로 S3에 파일 업로드 (PUT 방식)
+    - 환경설정 정보 기반 버킷/경로 설정
+    - 예외 발생 시 FastAPI 오류 반환
     """
     try:
-        # S3 저장 경로(unique key 생성)
-        key = f"uploads/{uuid4()}_{file.file_name}"
-
-        # presigned URL 생성
+        key = f"{settings.s3_upload_folder}/{uuid4()}_{file.file_name}"  # config에서 폴더명 불러옴
         url = s3_client.generate_presigned_url(
             'put_object',
             Params={
-                'Bucket': os.getenv('S3_BUCKET'),
+                'Bucket': settings.s3_bucket_name,
                 'Key': key,
-                'ContentType': file.mime_type  # 필드 명칭 수정
+                'ContentType': file.mime_type
             },
             ExpiresIn=300  # 5분
         )
-
         return {
             "upload_url": url,
-            "file_url": f"https://{os.getenv('S3_BUCKET')}.s3.amazonaws.com/{key}"
+            "file_url": f"https://{settings.s3_bucket_name}.s3.amazonaws.com/{key}"
         }
     except Exception as e:
         raise type_s3_exception(e)
 
-
+# S3 파일 삭제 엔드포인트
 @files.delete("/{key:path}")
 async def delete_file(key: str):
     """
     S3에서 파일 삭제 엔드포인트
-    - key: 삭제할 파일의 S3 경로(예: uploads/example.pdf)
-    - 환경설정에서 버킷명 획득
-    - 예외 발생 시 FastAPI 오류 반환
+    - key: S3 내 파일 경로 (예: uploads/example.pdf)
+    - 환경설정의 버킷 정보 활용
+    - 예외 시 FastAPI 오류 메시지 반환
     """
     try:
-        # S3 객체 삭제
         s3_client.delete_object(
-            Bucket=settings.s3_bucket_name,  # 환경설정값 사용
+            Bucket=settings.s3_bucket_name,
             Key=key
         )
         return {"message": "File deleted successfully"}
     except Exception as e:
         raise type_s3_exception(e)
 
+# S3 파일 검색 엔드포인트
 @files.get("/search")
 async def search_files(
-    # 파일이름, 확장자 입력
-    keywords: Optional[str] = Query(None, descripgion = "Search keywords for file names"),
-    extension : Optional[str] = Query(None, description="File extension to filter by")
+    keywords: Optional[str] = Query(None, description="파일 이름 검색 키워드"),
+    extension: Optional[str] = Query(None, description="파일 확장자 (예: pdf)")
 ):
-    bucket_name = os.getenv('S3_BUCKET')
-    response = s3_client.list_objects_v2(Bucket=bucket_name)
+    """
+    파일 이름 및 확장자 기반 검색 엔드포인트
+    - keywords: 파일명에 포함될 키워드 (optional)
+    - extension: 검색할 파일 확장자 (optional)
+    """
+    try:
+        response = s3_client.list_objects_v2(Bucket=settings.s3_bucket_name)
+        if 'Contents' not in response:
+            return []
 
-    # 불러오는 응답이 Contents 키를 포함하지 않을 경우 return 빈 리스트
-    if 'Contents' not in response:
-        return []
+        files = response['Contents']
+        result = []
+        for obj in files:
+            file_name = obj['Key']
+            # 키워드 필터
+            if keywords and keywords.lower() not in file_name.lower():
+                continue
+            # 확장자 필터링 (예: .pdf)
+            if extension:
+                normalized_extension = f".{extension.lower().lstrip('.')}"
+                if not file_name.endswith(normalized_extension):
+                    continue
+            result.append({
+                "file_name": file_name,
+                "last_modified": obj['LastModified'].isoformat(),
+                "size": obj['Size']
+            })
+        return result
+    except Exception as e:
+        raise type_s3_exception(e)
 
-    # Files라는 변수에 Contents 키의 값을 할당
-    Files = response['Contents']
-    result = []
-    for objects in Files:
-        file_name = objects['Key']
-
-        # 찾는 결과가 없을 경우 건너뛰기
-        if keywords and keywords.lower() not in file_name.lower():
-            continue
-        # 파일 확장자가 pdf가 아닌 경우 건너뛰기
-        nomalized_file_name = "." + extension.lower().lstrip(".")
-        if not file_name.endswith(nomalized_file_name):
-            continue
-        # result라는 리스트에 파일 정보 append
-        result.append({
-            "file_name": file_name,
-            "last_modified": objects['LastModified'].isoformat(),
-            "size": objects['Size']
-        })
-    return result
-
-
+# S3 파일 목록 페이지네이션 조회 엔드포인트
 @files.get("/select")
 def select_files(
-    page : int = Query(1, ge=1), # 페이지 번호, 1부터 시작
-    limit : int = Query(10,ge =1) # 페이지당 항목 수, 최소 1개 이상(10개씩)
+    page: int = Query(1, ge=1),   # 페이지 번호, 1부터 시작
+    limit: int = Query(10, ge=1)  # 페이지당 항목 수
 ) -> Dict:
-    objects = s3_client.list_objects_v2(Bucket=os.getenv('S3_BUCKET'))
-    contents = objects.get("Contents",[])
-    total_files = len(contents)  # 전체 항목 수 계산
-    total_pages = (total_files + limit -1) // limit # 총 페이지 수 계산
-    offset = (page -1) * limit  # 현재 페이지에 해당하는 시작 인덱스
-    page_items = contents[offset : offset + limit]
-
-    files_list = [ # S3에서 가져오는 파일의 정보
-        {
-            "key": obj['Key'],
-            "last_modified": obj['LastModified'].isoformat(),
-            "size": obj['Size']
+    """
+    S3 파일 목록을 페이지네이션하여 반환하는 엔드포인트
+    - page: 페이지 번호
+    - limit: 한 페이지당 파일 개수
+    """
+    try:
+        response = s3_client.list_objects_v2(Bucket=settings.s3_bucket_name)
+        contents = response.get("Contents", [])
+        total_files = len(contents)
+        total_pages = (total_files + limit - 1) // limit
+        offset = (page - 1) * limit
+        page_items = contents[offset: offset + limit]
+        files_list = [
+            {
+                "key": obj['Key'],
+                "last_modified": obj['LastModified'].isoformat(),
+                "size": obj['Size']
+            }
+            for obj in page_items
+        ]
+        return {
+            "data": files_list,
+            "pagination": {
+                "current_page": page,
+                "total_pages": total_pages,
+                "total_files": total_files,
+                "has_next": page < total_pages,
+                "has_prev": page > 1
+            }
         }
-        for obj in page_items
-    ]
-# 사용자 정보 반환(data, 파지네이션 정보 포함)
-    return {
-        "data" : files_list,
-        "pagination": {
-            "current_page": page, # 현재 페이지 번호
-            "total_pages": total_pages, # 총 페이지 수
-            "total_files": total_files, # 전체 파일 수
-            "has_next": page < total_pages, # 다음 페이지가 있는지 여부
-            "has_prev": page > 1 # 이전 페이지가 있는지 여부
-        }
-    }
+    except Exception as e:
+        raise type_s3_exception(e)
