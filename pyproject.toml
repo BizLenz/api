@@ -6,15 +6,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "pytest>=7.0.0",
-    "fastapi",
-    "boto3",
-    "python-dotenv",
-    "pydantic",
-    "uvicorn",
-    "httpx",
-    "botocore"
+    # 필요한 패키지 추가
 ]
 
 [tool.uv]  # uv 사용 시 필요
-[too.pytest.ini_options]
-addopts="-v"
