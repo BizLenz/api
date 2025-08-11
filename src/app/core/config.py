@@ -63,7 +63,7 @@ class OtherSettings(BaseSettings):
     다른 설정을 위한 클래스
     필요에 따라 추가적인 설정을 여기에 정의할 수 있습니다.
     """
-    max_Size = 50 * 1024 * 1024
+    max_Size: int = 50 * 1024 * 1024
     
 
 # 전역 설정 인스턴스

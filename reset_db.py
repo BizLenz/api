@@ -29,6 +29,17 @@ DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NA
 # 데이터베이스 엔진 생성
 engine = create_engine(DATABASE_URL)
 
+# 운영 환경(Production)일 경우, 사용자에게 재확인 절차를 거침
+if os.getenv("ENV") == "production":
+    print("🚨 경고: 현재 운영 환경(production)으로 설정되어 있습니다.")
+    print("이 스크립트를 실행하면 데이터베이스의 모든 데이터가 영구적으로 삭제됩니다.")
+    
+    confirm = input("정말로 데이터베이스를 초기화하려면 'YES'를 입력하세요: ")
+    
+    if confirm != "YES":
+        print("작업이 취소되었습니다.")
+        sys.exit(0)
+
 try:
     with engine.connect() as connection:
         # 스키마 변경을 위해 이전 트랜잭션을 커밋하고, 새 트랜잭션을 시작합니다.
