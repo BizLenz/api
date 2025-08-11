@@ -14,14 +14,14 @@ class Settings(BaseSettings):
     environment: str = Field(default="development", env="ENVIRONMENT")
     debug: bool = Field(default=True, env="DEBUG")
     
-    # 🔧 수정: 데이터베이스 설정 (Alembic 오류 해결용 기본값 추가)
+    # 수정: 데이터베이스 설정 (Alembic 오류 해결용 기본값 추가)
     db_user: str = Field(default="postgres", env="DB_USER")
     db_password: str = Field(default="", env="DB_PASSWORD") 
     db_host: str = Field(default="localhost", env="DB_HOST")
     db_port: int = Field(default=5432, env="DB_PORT")
     db_name: str = Field(default="postgres", env="DB_NAME")
     
-    # 🔧 수정: AWS 기본 설정 (PR 리뷰 반영 - Optional[str] 유지하되 Field 수정)
+    # 수정: AWS 기본 설정 (PR 리뷰 반영 - Optional[str] 유지하되 Field 수정)
     aws_access_key_id: str | None = Field(default=None, env="AWS_ACCESS_KEY_ID")
     aws_secret_access_key: str | None = Field(default=None, env="AWS_SECRET_ACCESS_KEY")
     aws_region: str | None = Field(default="ap-northeast-2", env="AWS_REGION")
