@@ -1,9 +1,8 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
+from app.core.config import settings
 
 def get_db_url() -> str:
     """
@@ -24,20 +23,24 @@ def get_db_url() -> str:
         # 테스트 환경을 위한 기본값
         return "sqlite:///:memory:"
 
-    load_dotenv(dotenv_path=env_path)
-
-    db_user = os.getenv("DB_USER")
-    db_pass = os.getenv("DB_PASSWORD")
-    db_host = os.getenv("DB_HOST")
-    db_port = os.getenv("DB_PORT")
-    db_name = os.getenv("DB_NAME")
+    db_user = settings.db_user
+    db_pass = settings.db_password
+    db_host = settings.db_host
+    db_port = settings.db_port
+    db_name = settings.db_name
 
     # 필수 환경 변수 검증
     if not all([db_user, db_pass, db_host, db_port, db_name]):
+        if os.getenv("ENV") == "production":
+            raise RuntimeError("Missing required database environment variables")
         print("Warning: Missing database environment variables, using SQLite for testing")
         return "sqlite:///:memory:"
     
-    return f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+    # URL 파싱 오류 방지를 위한 인코딩 (내장 함수 사용)
+    encoded_user = str(db_user).replace('@', '%40').replace(':', '%3A').replace('/', '%2F')
+    encoded_pass = str(db_pass).replace('@', '%40').replace(':', '%3A').replace('/', '%2F')
+    
+    return f"postgresql://{encoded_user}:{encoded_pass}@{db_host}:{db_port}/{db_name}"
 
 # 데이터베이스 URL 생성
 DATABASE_URL = get_db_url()
