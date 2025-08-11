@@ -1,6 +1,7 @@
 # src/app/core/config.py
 from pydantic import Field
 from pydantic_settings import BaseSettings
+from typing import Literal
 
 class Settings(BaseSettings):
     """환경 변수 기반 설정 클래스
@@ -47,8 +48,8 @@ class Settings(BaseSettings):
     s3_max_file_size: int = Field(default=50 * 1024 * 1024, env="S3_MAX_FILE_SIZE")  # 50MB
     
     # S3 Pre-signed URL 설정
-    presigned_url_expiration: int = Field(default=3600, env="PRESIGNED_URL_EXPIRATION")  # 1시간
-    presigned_url_method: str = Field(default="GET", env="PRESIGNED_URL_METHOD")  # GET, PUT, POST
+    presigned_url_expiration: int = Field(3600, env="PRESIGNED_URL_EXPIRATION")  # 1시간
+    presigned_url_method: Literal["GET", "PUT", "POST"] = Field("GET", env="PRESIGNED_URL_METHOD")
     
     # 🔧 수정: Config 클래스 (Pydantic 오류 해결)
     class Config:
