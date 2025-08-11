@@ -1,7 +1,7 @@
 from pydantic  import BaseModel, Field, validator
 from typing import Optional
 from datetime import datetime
-from app.core.config import settings
+from app.core.config import Settings
 
 class FileUploadRequest(BaseModel):
 
