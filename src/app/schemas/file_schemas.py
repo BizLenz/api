@@ -1,8 +1,7 @@
-from pydantic  import BaseModel, Field, validator, EmailStr
+from pydantic  import BaseModel, Field, validator
 from typing import Optional
 from datetime import datetime
-from enum import Enum
-import re
+from app.core.config import settings
 
 class FileUploadRequest(BaseModel):
 
@@ -163,8 +162,8 @@ class FileUploadError(BaseModel):
             }
         }
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = 'utf-8'
+class Config:
+    env_file = ".env"
+    env_file_encoding = 'utf-8'
 
 settings = Settings()

@@ -46,6 +46,6 @@ class Settings(BaseSettings):
 
    class Config:
    # 루트 디렉토리에 있는 .env 파일을 읽어 환경변수로 반영
-   env_file = ".env"
-   env_file_encoding = "utf-8"
-   case_sensitive = True
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = True

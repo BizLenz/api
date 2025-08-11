@@ -3,7 +3,7 @@ from app.schemas.evaluation import EvaluationRequest, EvaluationResponse, Reques
 import httpx 
 import json
 from pathlib import Path
-from google.generativeai as genai
+import google.generativeai as genai
 
 #google API 키 설정
 from app.core.config import API_KEY
@@ -109,7 +109,7 @@ async def get_industry_data(data: RequestindustryData = Body(...)):
 
     payload={
         "keyword":data.keyword,
-        "market_data": data.market_data.dict()
+        "market_data": data.market_data.dict(),
         "additional_data": data.additional_data
     }
 
@@ -119,19 +119,18 @@ async def get_industry_data(data: RequestindustryData = Body(...)):
         result = response.json()
 
         return ResponseindustryData(
-            marketStatus=result.get('marketStatus','No data')
-            expertOpinion= result.get('expertOpinion','No opinion')
+            marketStatus=result.get('marketStatus','No data'),
+            expertOpinion= result.get('expertOpinion','No opinion'),
             processed_data={
                 "original_market_data": data.market_data.dict()
             }
         ) 
     except requests.exceptions.RequestException as e:
         return Reponse(
-            marketStatus="Error fetching data"
-            expertOpinion=f"Failed to call API Gateway: {str(e)}"
+            marketStatus="Error fetching data",
+            expertOpinion=f"Failed to call API Gateway: {str(e)}",
             processed_data=None
         )
-
 
     except requests.exceptions.RequestException as e:
         raise HTTPException(status_code=500, detail=f"API Gateway 호출 실패: {str(e)}")
