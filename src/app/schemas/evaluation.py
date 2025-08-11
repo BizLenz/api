@@ -15,7 +15,7 @@ class EvaluationRequest(BaseModel):
    )
    questions: List[str] = Field(
     ...,
-    description = "해당 섹션의 평가 질문 목록"
+    description = "해당 섹션의 평가 질문 목록",
     min_items=1
    )
 
@@ -95,7 +95,7 @@ class RequestindustryData(BaseModel):
     def validate_market_data(cls,v):
         if v.marker_size is not None and v.marker_size <= 0:
             raise ValueError('시장 규모는 0보다 커야 합니다.')
-        if v.growth_rate is not None and  not (=100<=v.growth_rate<=1000):
+        if v.growth_rate is not None and  not (100<= v.growth_rate <=1000):
             raise ValueError('성장률은 -100%에서 1000% 사이여야 합니다')
         return v
 

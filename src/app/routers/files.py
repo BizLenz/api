@@ -1,11 +1,10 @@
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, Dict
 from botocore.exceptions import ClientError
 from uuid import uuid4
-from app.schemas.file_schemas import FileUploadRequest, FileUploadResponse
+from app.schemas.file_schemas import FileUploadRequest
 from app.crud.create_file_metadata import create_file_metadata
 from app.core.config import settings   # 환경설정 객체 import
 import boto3
@@ -72,7 +71,7 @@ async def upload_file(file: FileUploadRequest):
 
 # RDS 파일 메타데이터 저장 엔드포인트
 @files.post("/upload/metadata", response_model = dict)
-def save_file_metadata(metadata:FileUploadRequest, db:Session = Depends(get_db)):
+def save_file_metadata(metadata:FileUploadRequest, db: Session = Depends(get_db)):
     """
     클라이언트가 S3 업로드 후 호출하는 메타데이터 저장 API
     """
