@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException, Query, Depends
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, Dict
 from botocore.exceptions import ClientError
@@ -7,6 +6,7 @@ from uuid import uuid4
 from app.schemas.file_schemas import FileUploadRequest
 from app.crud.create_file_metadata import create_file_metadata
 from app.core.config import settings   # 환경설정 객체 import
+from app.database import get_db
 import boto3
 
 # FastAPI 라우터 객체 생성
