@@ -9,16 +9,17 @@ from dotenv import load_dotenv
 from typing import Optional, Dict
 from app.schemas.file_schemas import FileUploadRequest, FileUploadResponse
 from sqlalchemy.orm import Session
+from app.core.config import Settings
 
 
-load_dotenv()
-# .env 파일에서 환경 변수 로드
-required_env_vars = [
-    'AWS_REGION',
-    'AWS_ACCESS_KEY_ID',
-    'AWS_SECRET_ACCESS_KEY',
-    'S3_BUCKET'
-]
+# 한글 주석: 환경설정 정보로 S3 클라이언트를 생성합니다.
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=settings.aws_access_key_id,
+    aws_secret_access_key=settings.aws_secret_access_key,
+    region_name=settings.aws_region
+)
+
 # 오류 체크
 missing_vars = [var for var in required_env_vars if not os.getenv(var)]
 if missing_vars:
@@ -36,14 +37,6 @@ files.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],  # 모든 HTTP 메서드 허용
     allow_headers=["*"],  # 모든 헤더 허용
-)
-
-# AWS S3 클라이언트 설정
-s3_client = boto3.client(
-    's3',
-    region_name=os.getenv('AWS_REGION'),
-    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
 )
 
 
@@ -65,21 +58,31 @@ def type_s3_exception(e: Exception):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@files.post("/upload")
-async def upload_file(file:FileUploadRequest):
+@files.post("/upload", response_model=dict)  # presigned URL만 반환
+async def upload_file(file: FileUploadRequest):
+    """
+    PDF 파일 presigned URL 발급 엔드포인트
+    - 사용자는 presigned URL로 S3 업로드 실행
+    - Pydantic 기반 request validation
+    - 예외 발생 시 FastAPI 예외 반환
+    """
     try:
+        # S3 저장 경로(unique key 생성)
         key = f"uploads/{uuid4()}_{file.file_name}"
+
+        # presigned URL 생성
         url = s3_client.generate_presigned_url(
-            'put_object',  # S3에 파일 업로드 명령어
-            Params={  # 버킷 파라미터
+            'put_object',
+            Params={
                 'Bucket': os.getenv('S3_BUCKET'),
                 'Key': key,
-                'ContentType': file.filetype
+                'ContentType': file.mime_type  # 필드 명칭 수정
             },
-            ExpiresIn=300  # 5분 유효
+            ExpiresIn=300  # 5분
         )
+
         return {
-            "upload_url": url,  # presigned URL 반환
+            "upload_url": url,
             "file_url": f"https://{os.getenv('S3_BUCKET')}.s3.amazonaws.com/{key}"
         }
     except Exception as e:
@@ -88,8 +91,18 @@ async def upload_file(file:FileUploadRequest):
 
 @files.delete("/{key:path}")
 async def delete_file(key: str):
+    """
+    S3에서 파일 삭제 엔드포인트
+    - key: 삭제할 파일의 S3 경로(예: uploads/example.pdf)
+    - 환경설정에서 버킷명 획득
+    - 예외 발생 시 FastAPI 오류 반환
+    """
     try:
-        s3_client.delete_object(Bucket=os.getenv('S3_BUCKET'), Key=key)  # 제공된 키와 버킷 이름을 통해 delete_object 메서드 호출
+        # S3 객체 삭제
+        s3_client.delete_object(
+            Bucket=settings.s3_bucket_name,  # 환경설정값 사용
+            Key=key
+        )
         return {"message": "File deleted successfully"}
     except Exception as e:
         raise type_s3_exception(e)
