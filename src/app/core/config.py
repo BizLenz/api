@@ -1,7 +1,6 @@
 # src/app/core/config.py
 from pydantic import Field
 from pydantic_settings import BaseSettings
-from typing 
 
 class Settings(BaseSettings):
     """환경 변수 기반 설정 클래스
