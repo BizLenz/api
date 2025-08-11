@@ -1,5 +1,3 @@
-API_KEY = ""
-gateway_url="게이트웨이 url"
 
 from pydantic import BaseSettings, Field
 from typing import Optional, List 
@@ -9,7 +7,7 @@ class Settings(BaseSettings):
    """환경 변수 기반 설정 클래스
    로컬 개발, 스테이징, 프로덕션 환경을 구분하여 관리
    """
-
+    
    #프로젝트 기본 정보
    project_name: str = "BizLenz"
    version: str = "1.0.0"
