@@ -6,6 +6,7 @@ from typing import Optional, Dict
 from botocore.exceptions import ClientError
 from uuid import uuid4
 from app.schemas.file_schemas import FileUploadRequest, FileUploadResponse
+from app.crud.create_file_metadata import create_file_metadata
 from app.core.config import settings   # 환경설정 객체 import
 import boto3
 
@@ -69,6 +70,19 @@ async def upload_file(file: FileUploadRequest):
     except Exception as e:
         raise type_s3_exception(e)
 
+# RDS 파일 메타데이터 저장 엔드포인트
+@files.post("/upload/metadata", response_model = dict)
+def save_file_metadata(metadata:FileUploadRequest, db:Session = Depends(get_db)):
+    """
+    클라이언트가 S3 업로드 후 호출하는 메타데이터 저장 API
+    """
+    try:
+        db_file = create_file_metadata(db, metadata)
+        return {"message": "File metadata saved successfully", "file_id": db_file.id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error saving file metadata: {str(e)}")
+
+
 # S3 파일 삭제 엔드포인트
 @files.delete("/{key:path}")
 async def delete_file(key: str):
@@ -126,38 +140,57 @@ async def search_files(
 
 # S3 파일 목록 페이지네이션 조회 엔드포인트
 @files.get("/select")
-def select_files(
-    page: int = Query(1, ge=1),   # 페이지 번호, 1부터 시작
-    limit: int = Query(10, ge=1)  # 페이지당 항목 수
+async def select_files(
+    limit: int = Query(10, ge=1, le=1000, description="페이지당 조회할 객체 수 (1~1000)"),
+    continuation_token: Optional[str] = Query(None, description="다음 페이지 조회를 위한 ContinuationToken")
 ) -> Dict:
     """
-    S3 파일 목록을 페이지네이션하여 반환하는 엔드포인트
-    - page: 페이지 번호
-    - limit: 한 페이지당 파일 개수
+    S3 버킷 내 객체를 커서 기반 페이지네이션 방식으로 조회합니다.
+    - limit: 한 페이지당 객체 수
+    - continuation_token: 이전 요청에서 받은 NextContinuationToken
     """
     try:
-        response = s3_client.list_objects_v2(Bucket=settings.s3_bucket_name)
-        contents = response.get("Contents", [])
-        total_files = len(contents)
-        total_pages = (total_files + limit - 1) // limit
-        offset = (page - 1) * limit
-        page_items = contents[offset: offset + limit]
+        paginator = s3_client.get_paginator('list_objects_v2')
+
+        pagination_config = {"PageSize": limit}
+        paginate_params = {
+            "Bucket": settings.s3_bucket_name,
+            "PaginationConfig": pagination_config
+        }
+
+        if continuation_token:
+            paginate_params["PaginationConfig"]["StartingToken"] = continuation_token
+
+        page_iterator = paginator.paginate(**paginate_params)
+
+        # 첫 번째 페이지(현 요청에 해당하는 페이지)만 가져옴
+        page = next(page_iterator, None)
+
+        if not page or 'Contents' not in page:
+            return {
+                "data": [],
+                "pagination": {
+                    "next_token": None,
+                    "count": 0
+                }
+            }
+
         files_list = [
             {
                 "key": obj['Key'],
                 "last_modified": obj['LastModified'].isoformat(),
                 "size": obj['Size']
             }
-            for obj in page_items
+            for obj in page["Contents"]
         ]
+
+        next_token = page.get('NextContinuationToken')
+
         return {
             "data": files_list,
             "pagination": {
-                "current_page": page,
-                "total_pages": total_pages,
-                "total_files": total_files,
-                "has_next": page < total_pages,
-                "has_prev": page > 1
+                "next_token": next_token,
+                "count": len(files_list)
             }
         }
     except Exception as e:

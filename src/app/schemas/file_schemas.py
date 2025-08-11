@@ -7,7 +7,7 @@ import re
 class FileUploadRequest(BaseModel):
 
     # 파일 테이블 기반 정보 필드
-    user_id: int = Field(.., description="사용자 ID")
+    user_id: int = Field(..., description="사용자 ID")
     file_name: str = Field(..., description="업로드할 파일 이름")
     mime_type: str = Field(..., max_length=100, description="파일 MIME 타입")
     file_size: int = Field(..., gt=0, description="파일 크기 (바이트 단위)")
@@ -94,7 +94,7 @@ class FileUploadResponse(BaseModel):
     """
 
     #File 테이블 기반 구조를 반영한 응답 스키마
-    idL int = Field(..., description="파일 ID")
+    id: int = Field(..., description="파일 ID")
     user_id: int = Field(..., description="사용자 ID")
     file_name: str = Field(..., description="업로드된 파일 이름")
     file_path: str = Field(..., description="S3에 저장된 파일 경로")
@@ -133,7 +133,7 @@ class FileListResponse(BaseModel):
     """
     id : int
     file_name: str
-    file_size: ind
+    file_size: int
     mime_type: str
     created_at: datetime
 
@@ -166,5 +166,5 @@ class FileUploadError(BaseModel):
     class Config:
         env_file = ".env"
         env_file_encoding = 'utf-8'
-        
+
 settings = Settings()
