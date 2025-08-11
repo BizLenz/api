@@ -1,7 +1,7 @@
 from pydantic  import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
-from app.core.config import Settings
+
 
 class FileUploadRequest(BaseModel):
 
@@ -12,7 +12,7 @@ class FileUploadRequest(BaseModel):
     file_size: int = Field(..., gt=0, description="파일 크기 (바이트 단위)")
     description: Optional[str] = Field(None, max_length=500, description="파일 설명")
 
-    @validator('file_name')
+    @field_validator('file_name')
     def validate_file_name(cls,v):
         """
         파일명 유효성 검증
