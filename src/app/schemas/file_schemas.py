@@ -33,7 +33,7 @@ class FileUploadRequest(BaseModel):
             raise ValueError("파일 이름은 반드시 .pdf 확장자로 끝나야 합니다.")
         return v 
 
-    @validator('mime_type')
+    @field_validator('mime_type')
     def validate_mime_type(cls,v):
         """
         MIME 타입 유효성 검증
@@ -44,7 +44,7 @@ class FileUploadRequest(BaseModel):
             raise ValueError(f"허용되지 않는 MIME 타입입니다. 허용된 타입: {', '.join(allowed_mime_types)}")
         return v.lower()
 
-    @validator('file_size')
+    @field_validator('file_size')
     def validate_file_size(cls,v):
         """
         파일 크기 유효성 검증
@@ -59,7 +59,7 @@ class FileUploadRequest(BaseModel):
             raise ValueError("파일 크기는 0보다 커야 합니다.")
         return v 
 
-    @validator('user_id')
+    @field_validator('user_id')
     def validate_user_id(cls, v):
         """
         사용자 ID 유효성 검증

@@ -1,7 +1,6 @@
 # main.py
 import importlib
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from app.routers.files import files  # 파일 API 라우터 임포트 (예시)
 from mangum import Mangum
 import pkgutil
