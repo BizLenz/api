@@ -1,7 +1,7 @@
-from pydantic  import BaseModel, Field, validator
+from pydantic  import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
-from app.core.config import Settings
+from app.core.config import othersettings
 
 class FileUploadRequest(BaseModel):
 
@@ -12,7 +12,7 @@ class FileUploadRequest(BaseModel):
     file_size: int = Field(..., gt=0, description="파일 크기 (바이트 단위)")
     description: Optional[str] = Field(None, max_length=500, description="파일 설명")
 
-    @validator('file_name')
+    @field_validator('file_name')
     def validate_file_name(cls,v):
         """
         파일명 유효성 검증
@@ -33,7 +33,7 @@ class FileUploadRequest(BaseModel):
             raise ValueError("파일 이름은 반드시 .pdf 확장자로 끝나야 합니다.")
         return v 
 
-    @validator('mime_type')
+    @field_validator('mime_type')
     def validate_mime_type(cls,v):
         """
         MIME 타입 유효성 검증
@@ -44,14 +44,14 @@ class FileUploadRequest(BaseModel):
             raise ValueError(f"허용되지 않는 MIME 타입입니다. 허용된 타입: {', '.join(allowed_mime_types)}")
         return v.lower()
 
-    @validator('file_size')
+    @field_validator('file_size')
     def validate_file_size(cls,v):
         """
         파일 크기 유효성 검증
         AWS Lambda의 페이로드 제한과 사용자 경험을 고려
         """
         # 최대 500MB 제한
-        max_size = 50 * 1024 * 1024
+        max_size = othersettings.max_Size
         if v > max_size:
             max_size_mb = max_size / (1024 * 1024)
             raise ValueError(f"파일 크기는 {max_size_mb}MB를 초과할 수 없습니다.")
@@ -59,7 +59,7 @@ class FileUploadRequest(BaseModel):
             raise ValueError("파일 크기는 0보다 커야 합니다.")
         return v 
 
-    @validator('user_id')
+    @field_validator('user_id')
     def validate_user_id(cls, v):
         """
         사용자 ID 유효성 검증
@@ -162,8 +162,3 @@ class FileUploadError(BaseModel):
             }
         }
 
-class Config:
-    env_file = ".env"
-    env_file_encoding = 'utf-8'
-
-settings = Settings()

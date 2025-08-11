@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+from urllib.parse import quote_plus  # 1. URL 인코딩을 위해 import
+
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker  # 2. DeclarativeBase import
+from app.core.config import settings
 
 def get_db_url() -> str:
     """
@@ -24,20 +25,24 @@ def get_db_url() -> str:
         # 테스트 환경을 위한 기본값
         return "sqlite:///:memory:"
 
-    load_dotenv(dotenv_path=env_path)
-
-    db_user = os.getenv("DB_USER")
-    db_pass = os.getenv("DB_PASSWORD")
-    db_host = os.getenv("DB_HOST")
-    db_port = os.getenv("DB_PORT")
-    db_name = os.getenv("DB_NAME")
+    db_user = settings.db_user
+    db_pass = settings.db_password
+    db_host = settings.db_host
+    db_port = settings.db_port
+    db_name = settings.db_name
 
     # 필수 환경 변수 검증
     if not all([db_user, db_pass, db_host, db_port, db_name]):
+        if os.getenv("ENV") == "production":
+            raise RuntimeError("Missing required database environment variables")
         print("Warning: Missing database environment variables, using SQLite for testing")
         return "sqlite:///:memory:"
+
+    # 1. URL 파싱 오류 방지를 위해 사용자 이름과 비밀번호를 인코딩합니다.
+    safe_user = quote_plus(db_user)
+    safe_pass = quote_plus(db_pass)
     
-    return f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+    return f"postgresql://{safe_user}:{safe_pass}@{db_host}:{db_port}/{db_name}"
 
 # 데이터베이스 URL 생성
 DATABASE_URL = get_db_url()
@@ -56,8 +61,11 @@ else:
 # 세션 로컬 생성
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base 클래스 생성
-Base = declarative_base()
+
+# 2. DeclarativeBase를 상속하는 Base 클래스를 생성하는 방식으로 변경합니다.
+class Base(DeclarativeBase):
+    pass
+
 
 def get_db():
     """데이터베이스 세션을 생성하고 반환합니다."""

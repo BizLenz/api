@@ -12,11 +12,6 @@ import boto3
 # FastAPI 라우터 객체 생성
 files = APIRouter()
 
-# CORS 설정
-origins = [
-    "http://localhost:3000",  # 로컬 개발 환경 허용
-]
-
 
 # 환경설정 정보로 S3 클라이언트를 생성
 s3_client = boto3.client(
