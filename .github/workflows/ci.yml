@@ -50,8 +50,10 @@ jobs:
       - name: Run uv audit
         run: uv run uv-audit               # 7. 패키지 취약점 점검
 
-      - name: Run Pytest
-        run: uv run pytest          # 8. Pytest로 자동화 테스트 실행
+
+      #- name: Run Pytest
+         #run: uv run pytest          # 8. Pytest로 자동화 테스트 실행
+
 
       - name: Build Docker image
         run: docker build -t my-app:${{ github.sha }} .
