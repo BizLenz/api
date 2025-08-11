@@ -206,7 +206,93 @@ class Evaluation(Base):
     version = Column(Integer, nullable=True, server_default='1', comment="평가 버전")
     parent_evaluation_id = Column(Integer, ForeignKey("evaluations.id", ondelete="SET NULL"), nullable=True, comment="부모 평가 ID (재평가 시 참조)")
     
-    
     # 관계
     analysis = relationship("Analysis")
     parent_evaluation = relationship("Evaluation", remote_side=[id])
+
+
+# =======================================
+# 🆕 시장분석 테이블들 (누락된 모델 추가)
+# =======================================
+
+class MarketAnalysis(Base):
+    """
+    시장의 거시적 정보(규모, 성장성)와 고객/수요 데이터를 종합적으로 관리
+    담당 항목: A. 시장 규모 및 성장성, C. 고객 및 수요 데이터
+    """
+    __tablename__ = "market_analysis"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="분석 데이터 고유 ID")
+    market_name = Column(String(255), nullable=False, comment="분석 대상 시장의 이름")
+    year = Column(Integer, nullable=False, comment="데이터의 기준 연도")
+    total_revenue = Column(Numeric(20, 2), comment="(A) 해당 연도 전체 시장 매출액")
+    cagr = Column(Numeric(5, 2), comment="(A) 연평균 성장률 (%)")
+    growth_drivers = Column(Text, comment="(A) 시장 성장 동인 (기술 트렌드, 규제 변화 등)")
+    customer_group = Column(String(100), comment="(C) 주요 고객군 (연령, 산업, 지역 등)")
+    avg_purchase_value = Column(Numeric(15, 2), comment="(C) 평균 구매 금액")
+    nps = Column(Numeric(5, 2), comment="(C) 순추천지수 (Net Promoter Score)")
+    retention_rate = Column(Numeric(5, 2), comment="(C) 고객 유지율 (%)")
+    source = Column(String(255), comment="데이터의 출처 (보고서, 기사 등)")
+    last_updated = Column(TIMESTAMP(timezone=True), default=func.now(), onupdate=func.now(), comment="이 행(row)이 마지막으로 업데이트된 시간")
+
+    # 인덱스 추가
+    __table_args__ = (
+        Index('idx_market_analysis_market_year', 'market_name', 'year'),
+        Index('idx_market_analysis_year_desc', desc('year')),
+        Index('idx_market_analysis_revenue_desc', desc('total_revenue')),
+    )
+
+
+class CompetitorAnalysis(Base):
+    """
+    특정 시장, 특정 연도의 경쟁사에 대한 모든 정보(재무, 시장 점유율, 정성적 분석)를 종합적으로 관리
+    담당 항목: B. 경쟁사 분석 데이터 (B-1, B-2, B-4)
+    """
+    __tablename__ = "competitor_analysis"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="분석 데이터 고유 ID")
+    market_name = Column(String(255), nullable=False, comment="분석 대상 시장의 이름")
+    year = Column(Integer, nullable=False, comment="데이터의 기준 연도")
+    competitor_name = Column(String(255), nullable=False, comment="경쟁사 이름")
+    revenue = Column(Numeric(20, 2), comment="(B-1) 해당 경쟁사의 연간 매출액")
+    operating_profit = Column(Numeric(20, 2), comment="(B-1) 해당 경쟁사의 연간 영업이익")
+    debt_ratio = Column(Numeric(10, 2), comment="(B-1) 해당 경쟁사의 부채 비율 (%)")
+    share_percentage = Column(Numeric(5, 2), comment="(B-2) 해당 시장에서의 점유율 (%)")
+    competitive_advantage = Column(Text, comment="(B-4) 경쟁 우위 요소 (특허, 브랜드, 유통망 등)")
+    source = Column(String(255), comment="데이터의 출처")
+    last_updated = Column(TIMESTAMP(timezone=True), default=func.now(), onupdate=func.now(), comment="이 행(row)이 마지막으로 업데이트된 시간")
+
+    # 인덱스 추가
+    __table_args__ = (
+        Index('idx_competitor_analysis_market_year', 'market_name', 'year'),
+        Index('idx_competitor_analysis_competitor', 'competitor_name'),
+        Index('idx_competitor_analysis_revenue_desc', desc('revenue')),
+        Index('idx_competitor_analysis_share_desc', desc('share_percentage')),
+    )
+
+
+class ProductAnalysis(Base):
+    """
+    경쟁사의 개별 제품/서비스에 대한 정보(포트폴리오, 가격, 유통)를 종합적으로 관리
+    담당 항목: B-3. 제품/서비스 포트폴리오, D. 가격 및 유통 데이터
+    """
+    __tablename__ = "product_analysis"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True, comment="분석 데이터 고유 ID")
+    competitor_name = Column(String(255), nullable=False, comment="이 제품을 소유한 경쟁사 이름")
+    product_name = Column(String(255), nullable=False, comment="제품 또는 서비스의 이름")
+    category = Column(String(100), comment="제품 카테고리")
+    price = Column(Numeric(15, 2), comment="(D) 대표 가격 정보")
+    price_policy_notes = Column(Text, comment="(D) 가격 정책에 대한 상세 설명")
+    distribution_channels = Column(Text, comment="(D) 주요 유통 채널 목록 (콤마로 구분된 텍스트 등)")
+    tech_level = Column(String(100), comment="(B-3) 제품의 기술적 수준")
+    features = Column(Text, comment="(B-3) 제품의 주요 특징 요약")
+    last_updated = Column(TIMESTAMP(timezone=True), default=func.now(), onupdate=func.now(), comment="이 행(row)이 마지막으로 업데이트된 시간")
+
+    # 인덱스 추가
+    __table_args__ = (
+        Index('idx_product_analysis_competitor', 'competitor_name'),
+        Index('idx_product_analysis_product', 'product_name'),
+        Index('idx_product_analysis_category', 'category'),
+        Index('idx_product_analysis_price_desc', desc('price')),
+    )
