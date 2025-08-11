@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers.files import files  # 파일 API 라우터 임포트 (예시)
+from mangum import Mangum
 # 다른 라우터도 필요에 따라 추가
 
 app = FastAPI()
@@ -22,4 +23,7 @@ app.add_middleware(
 )
 
 # 라우터 등록
-app.include_router(files, prefix="/files")  # 파일 업로드 등 api
+app.include_router(files, prefix="/files", tags=["files"])  # 파일 업로드 등 api
+
+handler = Mangum(app)
+
