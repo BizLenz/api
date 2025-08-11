@@ -199,3 +199,6 @@ pyrightconfig.json
 src/.env
 .env.*
 *.pem
+.env
+.env.*
+*.pem
