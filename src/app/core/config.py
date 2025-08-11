@@ -1,7 +1,6 @@
 
 from pydantic import BaseSettings, Field
-from typing import Optional, List 
-import os
+from typing import Optional
 
 class Settings(BaseSettings):
    """환경 변수 기반 설정 클래스
