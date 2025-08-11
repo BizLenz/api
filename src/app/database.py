@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
+from urllib.parse import quote_plus  # 1. URL 인코딩을 위해 import
 from sqlalchemy import create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker  # 2. DeclarativeBase import
 from app.core.config import settings
 
 def get_db_url() -> str:
@@ -35,12 +36,12 @@ def get_db_url() -> str:
             raise RuntimeError("Missing required database environment variables")
         print("Warning: Missing database environment variables, using SQLite for testing")
         return "sqlite:///:memory:"
+
+    # 1. URL 파싱 오류 방지를 위해 사용자 이름과 비밀번호를 인코딩합니다.
+    safe_user = quote_plus(db_user)
+    safe_pass = quote_plus(db_pass)
     
-    # URL 파싱 오류 방지를 위한 인코딩 (내장 함수 사용)
-    encoded_user = str(db_user).replace('@', '%40').replace(':', '%3A').replace('/', '%2F')
-    encoded_pass = str(db_pass).replace('@', '%40').replace(':', '%3A').replace('/', '%2F')
-    
-    return f"postgresql://{encoded_user}:{encoded_pass}@{db_host}:{db_port}/{db_name}"
+    return f"postgresql://{safe_user}:{safe_pass}@{db_host}:{db_port}/{db_name}"
 
 # 데이터베이스 URL 생성
 DATABASE_URL = get_db_url()
@@ -59,8 +60,11 @@ else:
 # 세션 로컬 생성
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base 클래스 생성
-Base = declarative_base()
+
+# 2. DeclarativeBase를 상속하는 Base 클래스를 생성하는 방식으로 변경합니다.
+class Base(DeclarativeBase):
+    pass
+
 
 def get_db():
     """데이터베이스 세션을 생성하고 반환합니다."""
