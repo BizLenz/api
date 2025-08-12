@@ -51,7 +51,8 @@ jobs:
         uses: astral-sh/ruff-action@v3
         with:
           args: format --check .    # 6. Ruff로 코드 포맷 검사
-
+          args: format .
+            
       - name: Run uv audit
         run: uv run uv-audit
 
