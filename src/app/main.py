@@ -9,13 +9,13 @@ from typing import Iterable, List
 # app.routers 패키지를 별칭으로 임포트하여 충돌 방지
 import app.routers as routers_package
 
-def _iter_submodules(packages: ModuleType, base_pkg_name: str) -> Iterable[tuple[str, ModuleType]]:
+def _iter_submodules(package: ModuleType, base_pkg_name: str) -> Iterable[tuple[str, ModuleType]]:
     """
     주어진 패키지의 모든 서브모듈을 재귀적으로 순회하며 (폴 모듈 경로, 모듈 객체) 튜플을 생성합니다.
     """
     for finder, name, is_pkg in pkgutil.iter_modules(package.__path__):
         full_module_name = f"{base_pkg_name}.{name}"
-        
+        module = importlib.import_module(full_module_name)
         if is_pkg:
             # 패키지 자체도 반환하지 않고, 그 안의 모듈들을 재귀적으로 순회
             # (패키지 모듈에 APIRouter가 있을 수 있다면, 필요 시 아래에서 yield 추가 가능)
@@ -45,30 +45,30 @@ def _module_to_prefix(full_module_name: str, root_pkg: str) -> str:
     parts: List[str] = trimmed.split(".")
     return "/" + "/".join(parts)
 
-    def include_routers_recursive(app:FastAPI, root_pkg: ModuleType, root_pkg_name: str) -> None:
-        """
-        루트 패키지부터 시작해 모든 하위 모듈을 재귀 탐색하고,
-        각 모듈에서 발견되는 APIRouter 인스턴스를 FastAPI 앱에 등록합니다.
-        """
-        # 루트 패키지 모듈에 정의된 APIRouter를 먼저 등록
-        for attr_name in dir(root_pkg):
-            attr = getattr(root_pkg, attr_name)
-            if isinstance(attr, APIRouter):
-                prefix = "/"
-                app.include_router(attr, prefix=prefix, tags =["root"])
-                print(f"[Router] {root_pkg_name}.{attr_name} -> prefix='{prefix}', tags=['root']")
+def include_routers_recursive(app: FastAPI, root_pkg: ModuleType, root_pkg_name: str) -> None:
+    """
+    루트 패키지부터 시작해 모든 하위 모듈을 재귀 탐색하고,
+    각 모듈에서 발견되는 APIRouter 인스턴스를 FastAPI 앱에 등록합니다.
+    """
+    # 루트 패키지 모듈에 정의된 APIRouter를 먼저 등록
+    for attr_name in dir(root_pkg):
+        attr = getattr(root_pkg, attr_name)
+        if isinstance(attr, APIRouter):
+            prefix = "/"
+            app.include_router(attr, prefix=prefix, tags =["root"])
+            print(f"[Router] {root_pkg_name}.{attr_name} -> prefix='{prefix}', tags=['root']")
         
         # 하위 모듈 / 패키지 재귀 순회
-        for full_module_name, module in _iter_submodules(root_pkg, root_pkg_name):
-            # 모듈 내 정의된 모든 APIRouter 탐색
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-                if isinstance(attr, APIRouter):
-                    prefix = _module_to_prefix(full_module_name, root_pkg_name)
-                    # 태그는 마지막 경로 조각을 사용 (예: upload, users 등)
-                    tag = prefix.strip("/").split("/")[-1] or "root"
-                    app.include_router(attr, prefix=prefix, tags=[tag])
-                    print(f"[Router] {full_module_name}.{attr_name} -> prefix='{prefix}', tags=['{tag}']")
+    for full_module_name, module in _iter_submodules(root_pkg, root_pkg_name):
+        # 모듈 내 정의된 모든 APIRouter 탐색
+        for attr_name in dir(module):
+            attr = getattr(module, attr_name)
+            if isinstance(attr, APIRouter):
+                prefix = _module_to_prefix(full_module_name, root_pkg_name)
+                # 태그는 마지막 경로 조각을 사용 (예: upload, users 등)
+                tag = prefix.strip("/").split("/")[-1] or "root"
+                app.include_router(attr, prefix=prefix, tags=[tag])
+                print(f"[Router] {full_module_name}.{attr_name} -> prefix='{prefix}', tags=['{tag}']")
 
 
 
@@ -94,7 +94,7 @@ app = FastAPI(
 
 
 # 라우터 자동 등록
-include_routers(app, "app.routers", routers_package)
+include_routers_recursive(app, "app.routers", routers_package)
 
 # AWS Lambda 진입점
 handler = Mangum(app)
