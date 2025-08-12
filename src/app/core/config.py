@@ -1,5 +1,4 @@
 # src/app/core/config.py
-<<<<<<< HEAD
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Literal
@@ -64,46 +63,9 @@ class OtherSettings(BaseSettings):
     다른 설정을 위한 클래스
     필요에 따라 추가적인 설정을 여기에 정의할 수 있습니다.
     """
-    max_Size: int = 50 * 1024 * 1024
+    max_Size = 50 * 1024 * 1024
     
 
 # 전역 설정 인스턴스
 settings = Settings()
 othersettings = OtherSettings()
-=======
-
-from pydantic_settings import BaseSettings
-from pydantic import EmailStr
-from dotenv import load_dotenv
-
-# .env 파일 로드
-load_dotenv()
-
-
-class Settings(BaseSettings):
-    PROJECT_NAME: str = "My Business Diagnosis API"
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1일
-
-    DEFAULT_ADMIN_EMAIL: EmailStr = "admin@example.com"
-
-    DATABASE_URL: str
-
-    COGNITO_REGION: str
-    COGNITO_USER_POOL_ID: str
-    COGNITO_CLIENT_ID: str
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-
-
-# ✅ 즉시 생성 제거
-# settings = Settings()
-
-
-# ✅ 지연 생성 방식으로 대체
-def get_settings():
-    return Settings()
->>>>>>> d8f36259897a5fbeb61373e36cb592536ec5bbdd

@@ -1,0 +1,35 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Resources:
+  EvaluateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda_evaluate/
+      Handler: analysis.lambda_handler
+      Runtime: python3.10
+      Timeout: 60
+      Environment:
+        Variables:
+          GEMINI_API_KEY: !Ref GeminiApiKeySecret
+      Events:
+        EvaluateApi:
+          Type: Api
+          Properties:
+            Path: /evaluate
+            Method: post
+
+  GeminiApiKeySecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: "Gemini API Key for business plan evaluation"
+      GenerateSecretString:
+        SecretStringTemplate: '{}'
+        GenerateStringKey: 'api_key'
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\'
+
+Outputs:
+  EvaluateApi:
+    Description: "API Gateway endpoint URL for /evaluate"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/evaluate"
