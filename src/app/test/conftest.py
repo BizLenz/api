@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+# 테스트 파일 전체에서 사용되는 env  변수
+from dotenv import load_dotenv
+
+load_dotenv()
+=======
 # src/app/test/conftest.py
 import os
 import pytest
@@ -29,3 +35,4 @@ async def client(app_instance):
         transport=ASGITransport(app=app_instance), base_url="http://test"
     ) as ac:
         yield ac
+>>>>>>> d8f36259897a5fbeb61373e36cb592536ec5bbdd

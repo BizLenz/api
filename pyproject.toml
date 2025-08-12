@@ -1,12 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "api"
+name = "bizlenz-api"
 version = "0.1.0"
-description = "BackEnd project"
+description = "BizLenz AI Business Plan Analysis API"
+readme = "README.md"
 requires-python = ">=3.11"
+authors = [
+    {name = "BizLenz Team", email = "team@bizlenz.com"}
+]
 
 dependencies = [
     "pytest>=7.0.0",
-    # 필요한 패키지 추가
+    "fastapi",
+    "boto3",
+    "python-dotenv",
+    "pydantic",
+    "uvicorn",
+    "httpx",
+    "botocore",
+    "aiofiles",
+    "sqlalchemy",
+    "alembic",
+    "psycopg2-binary"
 ]
 
-[tool.uv]  # uv 사용 시 필요
+[tool.pytest.ini_options]
+addopts = "-v"
+
+# ✨ 아래 섹션을 추가하여 빌드 경고를 해결합니다.
+[tool.ruff]
+target-version = "py311"

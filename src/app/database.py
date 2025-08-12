@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from urllib.parse import quote_plus  # 1. URL 인코딩을 위해 import
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker  # 2. DeclarativeBase import
 from app.core.config import settings

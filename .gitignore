@@ -192,4 +192,13 @@ pyrightconfig.json
 .history
 .ionide
 
-# End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocodeapi/
+# End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode.env
+.env.*
+*.pem
+.env
+src/.env
+.env.*
+*.pem
+.env
+.env.*
+*.pem
