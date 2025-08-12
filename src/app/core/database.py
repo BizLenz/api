@@ -2,9 +2,9 @@
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-from app.core.config import get_settings  # ✅ settings → get_settings로 변경
+from app.core.config import get_settings 
 
-settings = get_settings()  # ✅ 이 시점에만 Settings 객체 생성
+settings = get_settings()  
 
 # SQLAlchemy 엔진 생성
 engine = create_engine(
