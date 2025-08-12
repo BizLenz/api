@@ -50,7 +50,13 @@ class Settings(BaseSettings):
     # S3 Pre-signed URL 설정
     presigned_url_expiration: int = Field(3600, env="PRESIGNED_URL_EXPIRATION")  # 1시간
     presigned_url_method: Literal["GET", "PUT", "POST"] = Field("GET", env="PRESIGNED_URL_METHOD")
-    
+
+    # Cognito 설정
+    cognito_region: str = Field(default = "ap-northeast-2", env="COGNITO_REGION")
+    cognito_user_pool_id: str = Field(default=None, env="COGNITO_USER_POOL_ID")
+    cognito_client_id: str = Field(default=None, env="COGNITO_CLIENT_ID")
+    cognito_client_secret: str | None = Field(default=None, env="COGNITO_CLIENT_SECRET")
+
     # 🔧 수정: Config 클래스 (Pydantic 오류 해결)
     class Config:
         env_file = ".env"
@@ -65,7 +71,15 @@ class OtherSettings(BaseSettings):
     """
     max_Size: int = 50 * 1024 * 1024
     
+    # 프론트엔드 오리진 목록(프로젝트 설정에 맞게 수정)
+    ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://your-frontend.example.com",
+    ]
+    
+    
 
 # 전역 설정 인스턴스
 settings = Settings()
 othersettings = OtherSettings()
+

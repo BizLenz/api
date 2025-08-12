@@ -1,171 +1,167 @@
-import os
-import boto3
+from fastapi import APIRouter, HTTPException, Query, Depends
+from sqlalchemy.orm import Session
+from typing import Optional, Dict, Any, List
+from botocore.exceptions import ClientError, BotoCoreError
 from uuid import uuid4
-from fastapi import FastAPI, HTTPException, Query
-from botocore.exceptions import ClientError
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, field_validator
-from dotenv import load_dotenv
-from typing import Optional, Dict
+from app.schemas.file_schemas import FileUploadRequest
+from app.crud.create_file_metadata import create_file_metadata
+from app.core.config import settings  # 환경설정 객체 import
+from app.database import get_db
+from app.core.security import require_scope, get_claims
+from app.core.exceptions import to_http_exception  # 예외 변환기 import
+import boto3
 
-load_dotenv()
-# .env 파일에서 환경 변수 로드
-required_env_vars = [
-    'AWS_REGION',
-    'AWS_ACCESS_KEY_ID',
-    'AWS_SECRET_ACCESS_KEY',
-    'S3_BUCKET'
-]
-# 오류 체크
-missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-if missing_vars:
-    raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+# 라우터: 기본적으로 read 권한 검사(값은 주입되지 않음. 주입하려면 각 엔드포인트 파라미터로 Depends 사용)
+files = APIRouter(dependencies=[Depends(require_scope("bizlenz.read"))])
 
-files = FastAPI()
-
-origins = [
-    "http://localhost:3000",  # 로컬 개발 환경
-]
-
-files.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,  # CORS 허용할 오리진 설정
-    allow_credentials=True,
-    allow_methods=["*"],  # 모든 HTTP 메서드 허용
-    allow_headers=["*"],  # 모든 헤더 허용
-)
-
-# AWS S3 클라이언트 설정
+# S3 클라이언트
 s3_client = boto3.client(
-    's3',
-    region_name=os.getenv('AWS_REGION'),
-    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+    "s3",
+    aws_access_key_id=settings.aws_access_key_id,
+    aws_secret_access_key=settings.aws_secret_access_key,
+    region_name=settings.aws_region,
 )
 
-
-# pydantic 모델의 요청 형식 정의
-class FileUploadRequest(BaseModel):
-    filename: str
-    filetype: str
-
-    # 파일 타입 체킹
-    @field_validator("filetype")
-    def validate_filetype(cls, v):
-        if v.lower() != 'pdf':
-            raise ValueError('Not supplied file type')
-        return v
-
-
-def type_s3_exception(e: Exception):
-    if isinstance(e, ClientError):
-        error_code = e.response['Error']['Code']
-        error_message = e.response['Error']['Message']
-
-        if error_code in ["NoSuchKey", "NotFound"]:
-            raise HTTPException(status_code=404, detail=error_message)
-        elif error_code in ["AccessDenied"]:
-            raise HTTPException(status_code=403, detail=error_message)
-        elif error_code in ["InvalidRequest"]:
-            raise HTTPException(status_code=400, detail=error_message)
-        else:
-            raise HTTPException(status_code=500, detail=error_message)
-    else:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@files.post("/upload")
-async def upload_file(file: FileUploadRequest):
+# PDF Presigned URL 발급 엔드포인트
+@files.post("/upload", response_model=dict)
+def upload(
+    file: FileUploadRequest,
+    claims: Dict[str, Any] = Depends(require_scope("bizlenz.write")),  # 쓰기 권한
+):
+    """
+    PDF 파일 presigned URL 발급 엔드포인트
+    - presigned URL로 S3에 파일 업로드 (PUT 방식)
+    - 환경설정 정보 기반 버킷/경로 설정
+    - 예외 발생 시 FastAPI 오류 반환
+    """
     try:
-        key = f"uploads/{uuid4()}_{file.filename}"
+        key = f"{settings.s3_upload_folder}/{uuid4()}_{file.file_name}"
+        params = {
+            "Bucket": settings.s3_bucket_name,
+            "Key": key,
+            "ContentType": file.mime_type,
+        }
+        # 파일 무결성을 강화하려면 content_md5 필드를 스키마에 추가해 ContentMD5 전달
         url = s3_client.generate_presigned_url(
-            'put_object',  # S3에 파일 업로드 명령어
-            Params={  # 버킷 파라미터
-                'Bucket': os.getenv('S3_BUCKET'),
-                'Key': key,
-                'ContentType': file.filetype
-            },
-            ExpiresIn=300  # 5분 유효
+            "put_object",
+            Params=params,
+            ExpiresIn=300,  # 5분
         )
         return {
-            "upload_url": url,  # presigned URL 반환
-            "file_url": f"https://{os.getenv('S3_BUCKET')}.s3.amazonaws.com/{key}"
+            "upload_url": url,
+            "file_url": f"https://{settings.s3_bucket_name}.s3.amazonaws.com/{key}",
+            "key": key,
         }
-    except Exception as e:
-        raise type_s3_exception(e)
+    except (ClientError, BotoCoreError, Exception) as err:
+        raise to_http_exception(err)
 
-
-@files.delete("/{key:path}")
-async def delete_file(key: str):
+# RDS 파일 메타데이터 저장 엔드포인트
+@files.post("/upload/metadata", response_model=dict)
+def save_file_metadata(
+    metadata: FileUploadRequest,
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(require_scope("bizlenz.write")),  # 쓰기 권한
+):
+    """
+    클라이언트가 S3 업로드 후 호출하는 메타데이터 저장 API
+    """
     try:
-        s3_client.delete_object(Bucket=os.getenv('S3_BUCKET'), Key=key)  # 제공된 키와 버킷 이름을 통해 delete_object 메서드 호출
-        return {"message": "File deleted successfully"}
+        db_file = create_file_metadata(db, metadata)
+        return {"message": "File metadata saved successfully", "file_id": db_file.id}
     except Exception as e:
-        raise type_s3_exception(e)
+        raise HTTPException(status_code=500, detail=f"Error saving file metadata: {str(e)}")
 
+# S3 파일 삭제 엔드포인트
+@files.delete("/{key:path}")
+async def delete_file(
+    key: str,
+    claims: Dict[str, Any] = Depends(require_scope("bizlenz.write")),  # 쓰기 권한
+):
+    """
+    S3에서 파일 삭제 엔드포인트
+    - key: S3 내 파일 경로 (예: uploads/example.pdf)
+    """
+    try:
+        s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=key)
+        return {"message": "File deleted successfully"}
+    except (ClientError, BotoCoreError, Exception) as e:
+        raise to_http_exception(e)
+
+# S3 파일 검색 엔드포인트
 @files.get("/search")
 async def search_files(
-    # 파일이름, 확장자 입력
-    keywords: Optional[str] = Query(None, descripgion = "Search keywords for file names"),
-    extension : Optional[str] = Query(None, description="File extension to filter by")
+    keywords: Optional[str] = Query(None, description="파일 이름 검색 키워드"),
+    extension: Optional[str] = Query(None, description="파일 확장자 (예: pdf)"),
+    claims: Dict[str, Any] = Depends(get_claims),  # 라우터 레벨 read 검사 + 실제 claims 접근
 ):
-    bucket_name = os.getenv('S3_BUCKET')
-    response = s3_client.list_objects_v2(Bucket=bucket_name)
+    """
+    파일 이름 및 확장자 기반 검색 엔드포인트
+    - keywords: 파일명에 포함될 키워드 (optional)
+    - extension: 검색할 파일 확장자 (optional)
+    """
+    try:
+        response = s3_client.list_objects_v2(Bucket=settings.s3_bucket_name)
+        if "Contents" not in response:
+            return []
 
-    # 불러오는 응답이 Contents 키를 포함하지 않을 경우 return 빈 리스트
-    if 'Contents' not in response:
-        return []
+        files = response["Contents"]
+        result: List[Dict[str, Any]] = []
+        normalized_extension = f".{extension.lower().lstrip('.')}" if extension else None
 
-    # Files라는 변수에 Contents 키의 값을 할당
-    Files = response['Contents']
-    result = []
-    for objects in Files:
-        file_name = objects['Key']
+        for obj in files:
+            file_name = obj["Key"]
+            if keywords and keywords.lower() not in file_name.lower():
+                continue
+            if normalized_extension and not file_name.lower().endswith(normalized_extension):
+                continue
+            result.append(
+                {
+                    "file_name": file_name,
+                    "last_modified": obj["LastModified"].isoformat(),
+                    "size": obj["Size"],
+                }
+            )
+        return result
+    except (ClientError, BotoCoreError, Exception) as e:
+        raise to_http_exception(e)
 
-        # 찾는 결과가 없을 경우 건너뛰기
-        if keywords and keywords.lower() not in file_name.lower():
-            continue
-        # 파일 확장자가 pdf가 아닌 경우 건너뛰기
-        nomalized_file_name = "." + extension.lower().lstrip(".")
-        if not file_name.endswith(nomalized_file_name):
-            continue
-        # result라는 리스트에 파일 정보 append
-        result.append({
-            "file_name": file_name,
-            "last_modified": objects['LastModified'].isoformat(),
-            "size": objects['Size']
-        })
-    return result
-
-
+# S3 파일 목록 페이지네이션 조회 엔드포인트
 @files.get("/select")
-def select_files(
-    page : int = Query(1, ge=1), # 페이지 번호, 1부터 시작
-    limit : int = Query(10,ge =1) # 페이지당 항목 수, 최소 1개 이상(10개씩)
+async def select_files(
+    limit: int = Query(10, ge=1, le=1000, description="페이지당 조회할 객체 수 (1~1000)"),
+    continuation_token: Optional[str] = Query(None, description="다음 페이지 조회를 위한 ContinuationToken"),
+    claims: Dict[str, Any] = Depends(get_claims),  # 라우터 레벨 read 검사 + 실제 claims 접근
 ) -> Dict:
-    objects = s3_client.list_objects_v2(Bucket=os.getenv('S3_BUCKET'))
-    contents = objects.get("Contents",[])
-    total_files = len(contents)  # 전체 항목 수 계산
-    total_pages = (total_files + limit -1) // limit # 총 페이지 수 계산
-    offset = (page -1) * limit  # 현재 페이지에 해당하는 시작 인덱스
-    page_items = contents[offset : offset + limit]
+    """
+    S3 버킷 내 객체를 커서 기반 페이지네이션 방식으로 조회합니다.
+    - limit: 한 페이지당 객체 수
+    - continuation_token: 이전 요청에서 받은 NextContinuationToken
+    """
+    try:
+        # paginator 사용 버전 유지
+        paginator = s3_client.get_paginator("list_objects_v2")
+        paginate_params = {
+            "Bucket": settings.s3_bucket_name,
+            "PaginationConfig": {"PageSize": limit},
+        }
+        if continuation_token:
+            paginate_params["PaginationConfig"]["StartingToken"] = continuation_token
 
-    files_list = [ # S3에서 가져오는 파일의 정보
-        {
-            "key": obj['Key'],
-            "last_modified": obj['LastModified'].isoformat(),
-            "size": obj['Size']
-        }
-        for obj in page_items
-    ]
-# 사용자 정보 반환(data, 파지네이션 정보 포함)
-    return {
-        "data" : files_list,
-        "pagination": {
-            "current_page": page, # 현재 페이지 번호
-            "total_pages": total_pages, # 총 페이지 수
-            "total_files": total_files, # 전체 파일 수
-            "has_next": page < total_pages, # 다음 페이지가 있는지 여부
-            "has_prev": page > 1 # 이전 페이지가 있는지 여부
-        }
-    }
+        page_iterator = paginator.paginate(**paginate_params)
+
+        page = next(page_iterator, None)
+        if not page or "Contents" not in page:
+            return {"data": [], "pagination": {"next_token": None, "count": 0}}
+
+        files_list = [
+            {
+                "key": obj["Key"],
+                "last_modified": obj["LastModified"].isoformat(),
+                "size": obj["Size"],
+            }
+            for obj in page["Contents"]
+        ]
+        next_token = page.get("NextContinuationToken")
+        return {"data": files_list, "pagination": {"next_token": next_token, "count": len(files_list)}}
+    except (ClientError, BotoCoreError, Exception) as e:
+        raise to_http_exception(e)
