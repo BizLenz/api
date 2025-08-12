@@ -46,29 +46,29 @@ def _module_to_prefix(full_module_name: str, root_pkg: str) -> str:
     return "/" + "/".join(parts)
 
     def include_routers_recursive(app:FastAPI, root_pkg: ModuleType, root_pkg_name: str) -> None:
-    """
-    루트 패키지부터 시작해 모든 하위 모듈을 재귀 탐색하고,
-    각 모듈에서 발견되는 APIRouter 인스턴스를 FastAPI 앱에 등록합니다.
-    """
-    # 루트 패키지 모듈에 정의된 APIRouter를 먼저 등록
-    for attr_name in dir(root_pkg):
-        attr = getattr(root_pkg, attr_name)
-        if isinstance(attr, APIRouter):
-            prefix = "/"
-            app.include_router(attr, prefix=prefix, tags =["root"])
-            print(f"[Router] {root_pkg_name}.{attr_name} -> prefix='{prefix}', tags=['root']")
-    
-    # 하위 모듈 / 패키지 재귀 순회
-    for full_module_name, module in _iter_submodules(root_pkg, root_pkg_name):
-        # 모듈 내 정의된 모든 APIRouter 탐색
-        for attr_name in dir(module):
-            attr = getattr(module, attr_name)
+        """
+        루트 패키지부터 시작해 모든 하위 모듈을 재귀 탐색하고,
+        각 모듈에서 발견되는 APIRouter 인스턴스를 FastAPI 앱에 등록합니다.
+        """
+        # 루트 패키지 모듈에 정의된 APIRouter를 먼저 등록
+        for attr_name in dir(root_pkg):
+            attr = getattr(root_pkg, attr_name)
             if isinstance(attr, APIRouter):
-                prefix = _module_to_prefix(full_module_name, root_pkg_name)
-                # 태그는 마지막 경로 조각을 사용 (예: upload, users 등)
-                tag = prefix.strip("/").split("/")[-1] or "root"
-                app.include_router(attr, prefix=prefix, tags=[tag])
-                print(f"[Router] {full_module_name}.{attr_name} -> prefix='{prefix}', tags=['{tag}']")
+                prefix = "/"
+                app.include_router(attr, prefix=prefix, tags =["root"])
+                print(f"[Router] {root_pkg_name}.{attr_name} -> prefix='{prefix}', tags=['root']")
+        
+        # 하위 모듈 / 패키지 재귀 순회
+        for full_module_name, module in _iter_submodules(root_pkg, root_pkg_name):
+            # 모듈 내 정의된 모든 APIRouter 탐색
+            for attr_name in dir(module):
+                attr = getattr(module, attr_name)
+                if isinstance(attr, APIRouter):
+                    prefix = _module_to_prefix(full_module_name, root_pkg_name)
+                    # 태그는 마지막 경로 조각을 사용 (예: upload, users 등)
+                    tag = prefix.strip("/").split("/")[-1] or "root"
+                    app.include_router(attr, prefix=prefix, tags=[tag])
+                    print(f"[Router] {full_module_name}.{attr_name} -> prefix='{prefix}', tags=['{tag}']")
 
 
 
