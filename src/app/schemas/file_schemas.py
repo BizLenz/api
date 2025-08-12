@@ -31,6 +31,28 @@ class FileUploadRequest(BaseModel):
         #pdf 확장자 체크
         if not v.lower().endswith('.pdf'):
             raise ValueError("파일 이름은 반드시 .pdf 확장자로 끝나야 합니다.")
+        # 3. Windows 예약어 검사 (확장자 제외)
+        reserved_names = {
+            "CON", "PRN", "AUX", "NUL",
+            *(f"COM{i}" for i in range(1, 10)),
+            *(f"LPT{i}" for i in range(1, 10)),
+        }
+        name_part = v.split('.')[0].upper()
+        if name_part in reserved_names:
+            raise ValueError(f"파일 이름에 허용되지 않는 예약어가 포함되어 있습니다: {name_part}")
+
+        # 4. ASCII 제어문자(0-31, 127) 검사
+        if any(ord(c) < 32 or ord(c) == 127 for c in v):
+            raise ValueError("파일 이름에 ASCII 제어문자(0-31, 127)는 포함될 수 없습니다.")
+
+        # 5. AWS S3에서 특별한 처리가 필요한 문자 검사
+        # 앰퍼샌드(&), 달러($), At(@), 같음(=), 세미콜론(;), 슬래시(/),
+        # 콜론(:), 더하기(+), 공백, 쉼표(,), 물음표(?)는 URL 인코딩 필요 - 여기서는 경고를 던짐
+        special_chars = set("&$@=;/:+ ,?")
+        if any(char in special_chars for char in v):
+            raise ValueError(
+                f"파일 이름에 S3 업로드 시 URL 인코딩이 필요한 문자가 포함되어 있습니다: {' '.join(special_chars)}"
+            )
         return v 
 
     @field_validator('mime_type')
@@ -57,7 +79,9 @@ class FileUploadRequest(BaseModel):
             raise ValueError(f"파일 크기는 {max_size_mb}MB를 초과할 수 없습니다.")
         if v <= 0:
             raise ValueError("파일 크기는 0보다 커야 합니다.")
-        return v 
+
+        
+        return v
 
     @field_validator('user_id')
     def validate_user_id(cls, v):
