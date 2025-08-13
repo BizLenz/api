@@ -5,7 +5,7 @@
 # - REST API(v1) 이벤트에서 requestContext.authorizer.claims를 읽어
 #   request.state.claims로 주입(HTTP API와 경로 다름)
 
-from future import annotations
+from __future__ import annotations
 
 import importlib
 import pkgutil

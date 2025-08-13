@@ -1,5 +1,5 @@
 from typing import Dict, Any, List
-from fastapi import APIRouter, Depends, HTTPException, status,Request
+from fastapi import APIRouter, Depends, HTTPException, status
 from botocore.exceptions import ClientError
 from app.schemas.auth_schemas import (
     SignUpRequest,
