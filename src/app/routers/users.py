@@ -9,13 +9,14 @@ from app.schemas.auth_schemas import (
     SignInResponse,
     ForgotPasswordRequest, 
     ForgotPasswordResponse, 
-    ConfrimForgotPasswordRequest,
+    ConfirmForgotPasswordRequest,
 )
 
 from app.services.auth_service import AuthService
 from app.core.config import get_auth_service
 from app.database import get_db
 from app.crud.user import create_user
+from sqlalchemy.orm import Session
 import bcrypt
 
 router = APIRouter(prefix="/auth", tags = ["auth"])
@@ -37,7 +38,7 @@ def sign_up(req:SignUpRequest, svc: AuthService = Depends(get_auth_service), db:
         raise HTTPException(status_code=400, detail=f"{code}: {msg}")
     # 2) RDS INSERT (비밀번호 해시 저장)
     try:
-        pw_hash = bcyrpt.hashpw(req.password.encode("utf-8"), bcyrpt.gensalt()).decode("utf-8")
+        pw_hash = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         create_user(
             db,
             username=req.username,
