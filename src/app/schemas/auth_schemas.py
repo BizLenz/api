@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Emailstr, Field
+from pydantic import BaseModel, Emailstr, Field, Dict, Any
 from typing import Optional
 
 class SignUpRequest(BaseModel):
@@ -45,3 +45,16 @@ class SignInResponse(BaseModel):
     challenge_name: Optional[str] = None
     session: Optional[str] = None
     challenge_parameters: Optional[Dict[str, Any]] = None
+
+class ForgotPasswordRequest(BaseModel):
+    username: str = Field(..., description = "비밀번호 재설정 대상 username")
+
+class ForgotPasswordResponse(BaseModel):
+    destination: Optional[str] = None
+    delivery_medium: Optional[str] = None
+    attritubute_name: Optional[str] = None
+
+class ConfirmForgotPasswordRequest(BaseModel):
+    username: str = Field(..., description = "비밀번호 재설정 대상 username")
+    confirmation_code: str = Field(..., description = "사용자에게 발송된 확인 코드")
+    new_password: str = Field(..., min_length=8, description = "새로운 비밀번호 (최소 8자 이상)")

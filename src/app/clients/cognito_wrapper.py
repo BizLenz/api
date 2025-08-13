@@ -97,17 +97,18 @@ class CognitoIdpWrapper:
     
 
     def _calc_secret_hash(self, username: str) -> str:
-    """
-    Cogntio App Client에 Client secret이 설정된 경우, API 요청에 포함해야 하는 SecretHash를 계산하는 함수
-    핵심 목적:
-    클라이언트가 진짜 client secret을 알고 있는지를 서버 측에서 검증할 수 있도록 하는 서명값(SecretHash)을 생성함.
-    """
+        """
+        Cogntio App Client에 Client secret이 설정된 경우, API 요청에 포함해야 하는 SecretHash를 계산하는 함수
+        핵심 목적:
+        클라이언트가 진짜 client secret을 알고 있는지를 서버 측에서 검증할 수 있도록 하는 서명값(SecretHash)을 생성함.
+        """
         if not self.client_secret:
             raise ValueError("Client secret is not configured but required.")
         key = self.client_secret.encode("utf-8")
         msg = (username + self.client_id).encode("utf-8")
         digest = hmac.new(key, msg, hashlib.sha256).digest()
-        return base.64.b54encode(digest).decode()
+
+        return base64.b54encode(digest).decode()
         
     def sign_up(
         self,
