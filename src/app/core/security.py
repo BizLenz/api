@@ -5,7 +5,6 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from typing import Optional
 from src.app.core.config import settings
-import bcrypt
 
 # 비밀번호 해시 설정
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
