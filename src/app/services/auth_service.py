@@ -27,6 +27,11 @@ from botocore.exceptions import ClientError
 
 from app.schemas.auth_schemas import SignUpRequest, SignUpResponse
 from src.clients.cognito_wrapper import CognitoIdpWrapper
+from app.schemas.auth_schemas import(
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ConfrimForgotPasswordRequest,
+)
 
 class AuthService:
     def __init__(self, cognito: CognitoIdpWrapper):
@@ -60,3 +65,38 @@ class AuthService:
             )
         except ClientError as e:
             raise e
+    def forgot_password(self, req: ForgotPasswordRequest) -> ForgotPasswordResponse:
+        """
+        비밀번호 재설정 코드 발송
+        """
+        try:
+            resp = self.cognito.forgot_pasword(username=req.username)
+            details = resp.get("CodeDeliveryDetails", {})
+            return ForgotPasswordResponse(
+                destination=details.get("Destination"),
+                delivery_medium=details.get("DeliveryMedium"),
+                attritubute_name=details.get("AttributeName"),
+            )
+        except ClientError as e:
+            raise e
+            
+    def confirm_forgot_password(self, req: ConfrimForgotPasswordRequest) -> dict:
+        """
+        코드 확인 및 새 비밀번호 설정
+        성공 시 빈 dict 반환
+        """
+        try:
+            self.cognito.confirm_forgot_password(
+                username=req.username,
+                confirmation_code=req.confirmation_code,
+                password=req.password,
+            )
+            return {"status": "CONFIRMED"}
+
+        except ClientError as e:
+            raise e
+        
+    
+
+
+
