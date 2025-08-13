@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from botocore.exceptions import ClientError
 from app.schemas.auth_schemas import (
-     SignUpRequest,
-     SignUpResponse,
-     ConfirmSignUpRequest,
-     ConfirmSignUpResponse,
-     SignInRequest,
-     SignInResponse,
+    SignUpRequest,
+    SignUpResponse,
+    ConfirmSignUpRequest,
+    ConfirmSignUpResponse,
+    SignInRequest,
+    SignInResponse,
+    ForgotPasswordRequest, 
+    ForgotPasswordResponse, 
+    ConfrimForgotPasswordRequest,
 )
 
 from app.services.auth_service import AuthService
@@ -73,6 +76,34 @@ def sign_in(req: SignInRequest, svc: AuthService = Depends(get_auth_service)):
     """
     try:
         return svc.sign_in(req)
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "CognitoError")
+        msg = e.response.get("Error", {}).get("Message", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"{code}: {msg}")
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(req: ForgotPasswordRequest, svc: AuthService = Depends(get_auth_service)):
+    """
+    비밀번호 재설정 코드 발송(ForgotPassword).
+    - 입력: username
+    - 반환: 발송 대상/채널
+    """
+    try:
+        return svc.forgot_password(req)
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "CognitoError")
+        msg = e.response.get("Error", {}).get("Message", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"{code}: {msg}")
+    
+@router.post("/reset-password", status_code = status.HTTP_200_OK)
+def confirm_forgot_password(req: ConfirmForgotPasswordRequest, svc: AuthService = Depends(get_auth_service)):
+    """
+    확인 코드 + 새 비밀번호 제출
+    - 입력: username, confirmation_code, new_password
+    - 반환: 상태 메시지
+    """
+    try:
+        return svc.confirm_forgot_password(req)
     except ClientError as e:
         code = e.response.get("Error", {}).get("Code", "CognitoError")
         msg = e.response.get("Error", {}).get("Message", "Unknown error")

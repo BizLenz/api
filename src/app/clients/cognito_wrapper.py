@@ -77,23 +77,23 @@ class CognitoIdpWrapper:
         client_secret: Optional[str] = None,
         boto3_client: Optional[BaseClient] = None,
     ) -> None:
-    """
-    region_name: AWS 리전 (예: ap-northeast-2)
-    user_pool_id: Cognito User Pool ID
-    client_id: User Pool의 App Client ID
-    client_secret: (선택) App Client Secret
-    boto3_client: (선택) 테스트 등을 위한 주입용 클라이언트
-    """
-    self.region_name = region_name
-    self.user_pool_id = user_pool_id
-    self.client_id = client_id
-    self.client_secret = client_secret  
+        """
+        region_name: AWS 리전 (예: ap-northeast-2)
+        user_pool_id: Cognito User Pool ID
+        client_id: User Pool의 App Client ID
+        client_secret: (선택) App Client Secret
+        boto3_client: (선택) 테스트 등을 위한 주입용 클라이언트
+        """
+        self.region_name = region_name
+        self.user_pool_id = user_pool_id
+        self.client_id = client_id
+        self.client_secret = client_secret  
 
-    # boto3 클라이언트가 주입되지 않으면 새로 생성
-    self.client: BaseClient = boto3_client or boto3.client(
-        "cognito-idp",
-        region_name=self.region_name,
-    )
+        # boto3 클라이언트가 주입되지 않으면 새로 생성
+        self.client: BaseClient = boto3_client or boto3.client(
+            "cognito-idp",
+            region_name=self.region_name,
+        )
     
 
     def _calc_secret_hash(self, username: str) -> str:
@@ -121,41 +121,89 @@ class CognitoIdpWrapper:
         secret_hash_username: Optional[str] = None,
         default_country_code: str = "+82",
     ) -> Dict:
-    """
-    RDS users 테이블 스키마를 반영한 회원가입 타입
-    - username: 고유 식별자(이메일/전화번호/임의 문자열). User Pool 설정에 따라 이메일/전화번호 형식이면 자동 매핑될 수 있음.[1]
-    - password: Cognito에 원문 비밀번호 전달(해시 X)
-    - email: 표준 속성 email로 전달[1][2]
-    - phone_number: 표준 속성 phone_number(E.164 필수)[1][2]
-    - address: custome된 address로 전달(사전 정의 필요)
-    - user_attributes: 추가 속성이 있으면 병합
-    - SecretHash: App Client에 secret이 있으면 필수[3][10][12]
-    """
-    attrs: List[Dict[str, str]] = []
+        """
+        RDS users 테이블 스키마를 반영한 회원가입 타입
+        - username: 고유 식별자(이메일/전화번호/임의 문자열). User Pool 설정에 따라 이메일/전화번호 형식이면 자동 매핑될 수 있음.[1]
+        - password: Cognito에 원문 비밀번호 전달(해시 X)
+        - email: 표준 속성 email로 전달[1][2]
+        - phone_number: 표준 속성 phone_number(E.164 필수)[1][2]
+        - address: custome된 address로 전달(사전 정의 필요)
+        - user_attributes: 추가 속성이 있으면 병합
+        - SecretHash: App Client에 secret이 있으면 필수[3][10][12]
+        """
+        attrs: List[Dict[str, str]] = []
 
-    if email:
-        attrs.append({"Name": "email", "Value": str(email)})
-    if phone_number:
-        e164 = to_e164(phone_number, default_country_code = default_country_code)
-        attrs.append({"Name": "phone_number", "Value": e164})
-    if address:
-        attrs.append({"Name": "address", "Value": str(address)})
+        if email:
+            attrs.append({"Name": "email", "Value": str(email)})
+        if phone_number:
+            e164 = to_e164(phone_number, default_country_code = default_country_code)
+            attrs.append({"Name": "phone_number", "Value": e164})
+        if address:
+            attrs.append({"Name": "address", "Value": str(address)})
 
-    if user_attributes:
-        attrs.extend(user_attributes)
-    
-    kwargs: Dict = {
-        "ClientId": self.client_id,
-        "Username": username,
-        "Password": password,
-    }
-    if attrs:
-        kwargs["UserAttributes"] = attrs
-    if self.client_secret:
-        base_username = secret_hash_username or username
-        kwargs["SecretHash"] = self._calc_secret_hash(base_username)
+        if user_attributes:
+            attrs.extend(user_attributes)
+        
+        kwargs: Dict = {
+            "ClientId": self.client_id,
+            "Username": username,
+            "Password": password,
+        }
+        if attrs:
+            kwargs["UserAttributes"] = attrs
+        if self.client_secret:
+            base_username = secret_hash_username or username
+            kwargs["SecretHash"] = self._calc_secret_hash(base_username)
 
-    try:
-        return self.client.sign_up(**kwargs)
-    except ClientError as e:
-        raise e
+        try:
+            return self.client.sign_up(**kwargs)
+        except ClientError as e:
+            raise e
+
+    def forgot_password(self, username: str, secret_hash_username: Optional[str] = None)-> Dict:
+        """
+        비밀번호 재설정 코드 발송(ForgotPassword).
+        - 필수: ClientId, Username
+        - 옵션: SecretHash(클라이언트 시크릿 사용 시)
+        - 응답: CodeDeliveryDetails(발송 채널/대상) 포함
+        """
+        kwargs: Dict = {
+            "ClientId": self.client_id,
+            "Username": username,
+        }
+        if self.client_secret:
+            base_username = secret_hash_username or username
+            kwargs["SecretHash"] = self._calc_secret_hash(base_username)
+        try:
+            return self.client.forgot_password(**kwargs) # 공식 메서드
+        except ClientError as e:
+            raise e
+
+
+    def confirm_forgot_password(
+        self,
+        username: str,
+        confirmation_code: str,
+        new_password: str,
+        secret_hash_username: Optional[str] = None,
+    ) -> Dict:
+        """
+        비밀번호 재설정 완료(ConfirmForgotPassword).
+        - 필수: ClientId, Username, ConfirmationCode, Password(새 비밀번호)
+        - 옵션: SecretHash(클라이언트 시크릿 사용 시)
+        - 응답: 빈 dict {} 성공 시
+        """
+        kwargs: Dict = {
+            "ClientId": self.client_id,
+            "Username": username,
+            "ConfirmationCode": confirmation_code,
+            "Password": new_password,
+        }
+        if self.client_secret:
+            base_username = secret_hash_username or username
+            kwargs["SecretHash"] = self._calc_secret_hash(base_username)
+        try:
+            return self.client.confirm_forgot_password(**kwargs)  # 공식 메서드
+        except ClientError as e:
+            raise e
+        
