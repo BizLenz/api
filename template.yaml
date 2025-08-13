@@ -1,135 +1,70 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: BizLenz FastAPI on Lambda (SAM)
+Description: BizLenz - REST API (v1) with Cognito User Pools Authorizer + FastAPI (Mangum)
+
+Parameters:
+  CognitoRegion:
+    Type: String
+    Default: ap-northeast-2
+  CognitoUserPoolArn:
+    Type: String
+    Description: ARN of existing Cognito User Pool (e.g., arn:aws:cognito-idp:ap-northeast-2:123456789012:userpool/ap-northeast-2_ABCdef123)
+
 
 Globals:
   Function:
     Runtime: python3.11
-    Timeout: 30
+    Timeout: 10
     MemorySize: 512
-    Tracing: Active
-
-Parameters:
-  StageName:
-    Type: String
-    Default: prod
-    Description: API Gateway stage name
-  CognitoRegion:
-    Type: String
-    Default: ap-northeast-2
-  CognitoUserPoolId:
-    Type: String
-    Default: ""
-  CognitoClientId:
-    Type: String
-    Default: ""
-  CognitoClientSecret:
-    Type: String
-    Default: ""
-    NoEcho: true
-    Description: Use Secrets Manager dynamic reference in production
-  UseHttpApi:
-    Type: String
-    AllowedValues: ["true","false"]
-    Default: "false"
-    Description: Use AWS::Serverless::HttpApi instead of REST Api
+    Architectures: [x86_64]
+    Environment:
+      Variables:
+        STAGE: dev
 
 Resources:
-  # API Gateway (REST) - 기본값
   RestApi:
     Type: AWS::Serverless::Api
-    Condition: UseRestApi
     Properties:
-      StageName: !Ref StageName
-      EndpointConfiguration: REGIONAL
-      TracingEnabled: true
-      OpenApiVersion: '3.0.1'
+      StageName: v1
+      # REST API CORS: 프리플라이트를 API Gateway에서 처리, 실제 응답 헤더는 Lambda에서 추가 권장
       Cors:
-        AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
-        AllowOrigin: "'*'"
+        AllowOrigin: "'http://localhost:3000, https://your-frontend.example.com'"
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
+        AllowHeaders: "'Authorization,Content-Type'"
+        MaxAge: "'86400'"
+      Auth:
+        DefaultAuthorizer: CognitoPoolAuth
+        Authorizers:
+          CognitoPoolAuth:
+            UserPoolArn: !Ref CognitoUserPoolArn
+            # Identity 헤더 이름 지정 가능(기본 Authorization)
+            Identity:
+              Header: Authorization
 
-  # API Gateway (HTTP API) - 선택
-  HttpApi:
-    Type: AWS::Serverless::HttpApi
-    Condition: UseHttp
-    Properties:
-      StageName: !Ref StageName
-      CorsConfiguration:
-        AllowOrigins:
-          - "*"
-        AllowMethods:
-          - GET
-          - POST
-          - PUT
-          - PATCH
-          - DELETE
-          - OPTIONS
-        AllowHeaders:
-          - Content-Type
-          - Authorization
 
   ApiFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: bizlenz-fastapi
+      FunctionName: bizlenz-fastapi-rest-proxy
       CodeUri: .
       Handler: main.handler
-      Architectures:
-        - x86_64
       Policies:
-        # 기본 실행 + 로그 생성
         - AWSLambdaBasicExecutionRole
-        # 필요 시 Secrets Manager/SSM 권한 최소 범위로 추가
-        # - AWSSecretsManagerGetSecretValuePolicy:
-        #     SecretArn: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:your-secret-name-*
-      Environment:
-        Variables:
-          # Cognito 설정 (운영 시 Secrets Manager 동적 참조 권장: {{resolve:secretsmanager:...}})
-          COGNITO_REGION: !Ref CognitoRegion
-          COGNITO_USER_POOL_ID: !Ref CognitoUserPoolId
-          COGNITO_CLIENT_ID: !Ref CognitoClientId
-          COGNITO_CLIENT_SECRET: !Ref CognitoClientSecret
       Events:
-        # REST API 사용하는 경우
-        RestProxy:
-          Condition: UseRestApi
-          Type: Api
-          Properties:
-            RestApiId: !Ref RestApi
-            Path: /{proxy+}
-            Method: ANY
-        RestRoot:
-          Condition: UseRestApi
+        RootProxy:
           Type: Api
           Properties:
             RestApiId: !Ref RestApi
             Path: /
             Method: ANY
-        # HTTP API 사용하는 경우
-        HttpProxy:
-          Condition: UseHttp
-          Type: HttpApi
+        GreedyProxy:
+          Type: Api
           Properties:
-            ApiId: !Ref HttpApi
+            RestApiId: !Ref RestApi
             Path: /{proxy+}
             Method: ANY
-        HttpRoot:
-          Condition: UseHttp
-          Type: HttpApi
-          Properties:
-            ApiId: !Ref HttpApi
-            Path: /
-            Method: ANY
-
-Conditions:
-  UseHttp: !Equals [!Ref UseHttpApi, "true"]
-  UseRestApi: !Equals [!Ref UseHttpApi, "false"]
 
 Outputs:
-  ApiUrl:
-    Description: Invoke URL
-    Value: !If
-      - UseRestApi
-      - !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
-      - !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+  ApiEndpoint:
+    Description: REST API endpoint base URL
+    Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/v1"
