@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 import importlib
 import pkgutil
 from types import ModuleType
@@ -14,6 +15,7 @@ from typing import Iterable, Tuple, List, Dict, Any
 from fastapi import FastAPI, APIRouter, Request, Response
 from mangum import Mangum
 import app.routers as routers_package  # app/routers/__init__.py 필요
+from app.core.config import OtherSettings
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -79,7 +81,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-from app.core.config import OtherSettings
+
 ALLOWED_ORIGINS = OtherSettings.ALLOWED_ORIGINS
 
 app.add_middleware(
@@ -94,6 +96,7 @@ app.add_middleware(
 )
 
 include_routers_recursive(app, routers_package, "app.routers")
+logger = logging.getLogger("bizlenz.auth")  # 인증/인가 영역 전용 로거
 
 # REST API(v1)용: requestContext.authorizer.claims 경로 사용
 @app.middleware("http")
@@ -115,12 +118,17 @@ async def inject_claims(request: Request, call_next):
             claims = authorizer.get("claims") or {}
             #AWS API Gateway (REST API 타입)가 Cognito Authorizer를 통해 요청을 검증하면, requestContext.authorizer.claims 경로에 검증된 JWT의 payload(claims)를 담아줍니다.
             if not claims:
-                logger.debug("REST-style claims missing or empty in authorizer: %s", list(authorizer.keys()))
-            if not claims and isinstance("jwt"):
-                jwt_claims = jwt_ctx.get("claims") or {}
-                if jwt_claims:
-                    claims = jwt_claims
-                    logger.debug("Using HTTP API Fallback via authorizer.jwt.claims.")
+                jwt_obj = authorizer.get("jwt") or {}
+                if isinstance(jwt_obj, dict):
+                    jwt_claims = jwt_obj.get("claims")
+                    if isinstance(jwt_claims,dict) and jwt_claims:
+                        claims = jwt_claims
+                        logger.debug("Extracted claims from HTTP authorizer.jwt.claims")
+        else:
+            logger.debug("Unexpected requestContext type: %s", type(rc).__name__)
+    else:
+        logger.debug("aws.event not found on request.scope or wrong type")
+            
 
 
     # cognito:groups 표준화(문자열 -> 리스트, 누락 -> 빈 리스트)
