@@ -12,7 +12,9 @@ def get_claims(request: Request) -> Dict[str, Any]:
     sub가 없거나 비어 있으면 인증 실패(401)로 처리합니다.
     """
     claims = getattr(request.state, "claims", None)
-    if not isinstance(claims, dict) or "sub" not in claims:
+    
+    # claim이 Dictionary 형태인지 확인하고, "sub" 키가 없어서 None이 반환되거나, 키가 있지만 값이 None, False, ""(빈 문자열) 등 'falsy'한 값인 경우에 True가 됩니다.
+    if not isinstance(claims, dict) or not claims.get("sub"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
     return claims
 

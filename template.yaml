@@ -27,11 +27,6 @@ Resources:
     Properties:
       StageName: v1
       # REST API CORS: 프리플라이트를 API Gateway에서 처리, 실제 응답 헤더는 Lambda에서 추가 권장
-      Cors:
-        AllowOrigin: "'http://localhost:3000, https://your-frontend.example.com'"
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS,PATCH'"
-        AllowHeaders: "'Authorization,Content-Type'"
-        MaxAge: "'86400'"
       Auth:
         DefaultAuthorizer: CognitoPoolAuth
         Authorizers:
