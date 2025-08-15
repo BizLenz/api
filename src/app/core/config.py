@@ -71,6 +71,13 @@ class OtherSettings(BaseSettings):
     """
     max_Size = 50 * 1024 * 1024
     
+    # 프론트엔드 오리진 목록(프로젝트 설정에 맞게 수정)
+    ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "https://your-frontend.example.com",
+    ]
+    
+    
 
 # 전역 설정 인스턴스
 settings = Settings()

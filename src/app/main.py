@@ -79,11 +79,8 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# 프론트엔드 오리진 목록(프로젝트 설정에 맞게 수정)
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "https://your-frontend.example.com",
-]
+from app.core.config import OtherSettings
+ALLOWED_ORIGINS = OtherSettings.ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
@@ -91,6 +88,7 @@ app.add_middleware(
     allow_credentials=True,                 # 쿠키/인증정보 포함 요청 허용 시 True
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Authorization", "Content-Type"],
+    max_age=86400,
     # 필요 시 브라우저가 읽을 수 있는 헤더를 노출
     # expose_headers=["Content-Disposition"],
 )
@@ -116,10 +114,14 @@ async def inject_claims(request: Request, call_next):
             # 일부 환경에서 'claims' 속성이 없거나 커스텀 context로 제공될 수 있으니 방어적으로 처리
             claims = authorizer.get("claims") or {}
             #AWS API Gateway (REST API 타입)가 Cognito Authorizer를 통해 요청을 검증하면, requestContext.authorizer.claims 경로에 검증된 JWT의 payload(claims)를 담아줍니다.
-            
-            # 선택: HTTP API 경로도 방어적으로 지원
-            if not claims and isinstance(authorizer.get("jwt"), dict):
-                claims = authorizer["jwt"].get("claims") or {}
+            if not claims:
+                logger.debug("REST-style claims missing or empty in authorizer: %s", list(authorizer.keys()))
+            if not claims and isinstance("jwt"):
+                jwt_claims = jwt_ctx.get("claims") or {}
+                if jwt_claims:
+                    claims = jwt_claims
+                    logger.debug("Using HTTP API Fallback via authorizer.jwt.claims.")
+
 
     # cognito:groups 표준화(문자열 -> 리스트, 누락 -> 빈 리스트)
     raw_groups = claims.get("cognito:groups")
