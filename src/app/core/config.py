@@ -1,6 +1,6 @@
 # src/app/core/config.py
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
 
 class Settings(BaseSettings):
@@ -52,18 +52,19 @@ class Settings(BaseSettings):
     presigned_url_method: Literal["GET", "PUT", "POST"] = Field("GET", env="PRESIGNED_URL_METHOD")
     
     # 🔧 수정: Config 클래스 (Pydantic 오류 해결)
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False  # 🔧 변경: 대소문자 구분 안함
+    model_config = SettingsConfigDict(
+        env_file = ".env",
+        env_file_encoding = "utf-8",
+        case_sensitive = False,  # 🔧 변경: 대소문자 구분 안함
         extra = "ignore"        # 🔧 추가: 추가 필드 무시 (ValidationError 방지)
+    )
 
 class OtherSettings(BaseSettings):
     """
     다른 설정을 위한 클래스
     필요에 따라 추가적인 설정을 여기에 정의할 수 있습니다.
     """
-    max_Size = 50 * 1024 * 1024
+    max_Size: int = 50 * 1024 * 1024
     
 
 # 전역 설정 인스턴스
