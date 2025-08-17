@@ -1,149 +1,126 @@
-# src/app/routers/users.py
-
-from fastapi import APIRouter, HTTPException, Request
-from pydantic import BaseModel, EmailStr
-from jose import JWTError, jwt
-import httpx
-import boto3
+from typing import Dict, Any, List
+from fastapi import APIRouter, Depends, HTTPException, status
 from botocore.exceptions import ClientError
-from app.core.config import get_settings
+from app.schemas.auth_schemas import (
+    SignUpRequest,
+    SignUpResponse,
+    ConfirmSignUpRequest,
+    ConfirmSignUpResponse,
+    SignInRequest,
+    SignInResponse,
+    ForgotPasswordRequest, 
+    ForgotPasswordResponse, 
+    ConfirmForgotPasswordRequest,
+)
 
-settings = get_settings()
-router = APIRouter()
+from app.services.auth_service import AuthService
+from app.core.config import get_auth_service
+from app.database import get_db
+from app.crud.user import create_user
+from sqlalchemy.orm import Session
+from app.core.security import require_scope
+import bcrypt
 
-# Cognito 기본 설정
-COGNITO_REGION = settings.COGNITO_REGION
-USER_POOL_ID = settings.COGNITO_USER_POOL_ID
-CLIENT_ID = settings.COGNITO_CLIENT_ID
-JWKS_URL = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{USER_POOL_ID}/.well-known/jwks.json"
-ISSUER = f"https://cognito-idp.{COGNITO_REGION}.amazonaws.com/{USER_POOL_ID}"
-
-# boto3 클라이언트
-cognito_client = boto3.client("cognito-idp", region_name=COGNITO_REGION)
-
-# 메모리 캐시된 JWKS
-jwks = {}
-
-
-# 요청 스키마
-class SignupRequest(BaseModel):
-    email: EmailStr
-    password: str
+router = APIRouter(prefix="/users", tags = ["users"])
 
 
-class TokenRequest(BaseModel):
-    credentials: str
+@router.get("/me")
+def get_me(claims: Dict[str, Any] = Depends(require_scope("bizlenz.read"))):
+    groups: List[str] = claims.get("cognito:groups", [])
+    # TODO: 실제 RDS 조회 로직으로 교체 (claims["sub"] 사용)
+    user = {"id": 1, "sub": claims["sub"], "email": claims.get("email"), "role": "editor", "groups": groups}
+    """
+    최소 데이터만 즉시 제공: 화면 상단 프로필, 메뉴 권한(읽기/쓰기 등), 온보딩 여부 판단 등 초기 렌더링에 필요한 핵심 정보를 가볍게 반환한다
+    JWT Authorizer(또는 Cognito Authorizer) 통과 후, 백엔드에서 검증된 claims를 받아 sub로 DB 사용자 레코드를 조회하고, 권한 스코프(bizlenz.read 등)가 맞는지 확인한다.
+    프런트는 GET /me 한 번으로 “내 프로필/역할/그룹”을 획득하고, 이후 화면 요소(업로드 버튼, 관리자 메뉴 등)를 조건부로 렌더링한다
+    """
+    return {"me": user}
 
-
-class ForgottenPasswordRequest(BaseModel):
-    email_info: EmailStr
-    confirmation_code: str
-    new_password: str
-
-
-# JWKS 키 가져오기
-async def get_public_keys():
-    global jwks
-    if not jwks:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(JWKS_URL)
-            jwks = resp.json()
-    return jwks
-
-
-# JWT 토큰 검증용 의존성
-async def verify_cognito_token(request: Request):
-    auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401, detail="Missing or invalid Authorization header"
-        )
-
-    token = auth_header.split()[1]
-    keys = await get_public_keys()
-
-    for key in keys["keys"]:
-        try:
-            public_key = {
-                "kty": key["kty"],
-                "kid": key["kid"],
-                "use": key["use"],
-                "n": key["n"],
-                "e": key["e"],
-            }
-            decoded_token = jwt.decode(
-                token,
-                public_key,
-                algorithms=["RS256"],
-                audience=CLIENT_ID,
-                issuer=ISSUER,
-            )
-            return decoded_token
-        except JWTError:
-            continue
-
-    raise HTTPException(status_code=401, detail="Invalid Cognito token")
-
-
-# 회원가입
-@router.post("/signup")
-def signup_user(user: SignupRequest):
+@router.post("/signup",response_model=SignUpResponse, status_code = status.HTTP_201_CREATED)
+def sign_up(req:SignUpRequest, svc: AuthService = Depends(get_auth_service), db: Session = Depends(get_db)):
+    """
+    회원가입 엔드포인트
+    - 입력: username, password, email, phone_number, address
+    - 처리: 서비스가 Cognito sign_up 호출 시 email/phone_number/address를 Cognito 속성으로 매핑, RDS users에 레코드 생성
+    - 반환: 확인 코드 발송 정보와 사용자 확인 상태.
+    """
+    # 1) Cognito 가입
     try:
-        response = cognito_client.sign_up(
-            ClientId=CLIENT_ID,
-            Username=user.email,
-            Password=user.password,
-            UserAttributes=[{"Name": "email", "Value": user.email}],
-        )
-        return {
-            "status": "success",
-            "message": "User registered successfully",
-            "user_sub": response["UserSub"],
-        }
+        resp = svc.sign_up(req)
     except ClientError as e:
-        raise HTTPException(status_code=400, detail=e.response["Error"]["Message"])
-
-
-# 로그인 (JWT 토큰 유효성 확인)
-@router.post("/login")
-async def login_with_JWTtoken(token_request: TokenRequest):
-    token = token_request.credentials
-    decoded = await verify_cognito_token(
-        Request(
-            scope={
-                "type": "http",
-                "headers": [(b"authorization", f"Bearer {token}".encode())],
-            }
-        )
-    )
-    return {
-        "status": "success",
-        "message": "Login successful",
-        "access_token": token,
-        "claims": decoded,
-    }
-
-
-# 비밀번호 재설정 요청
-@router.post("/forgot-password")
-def forgot_password(req: ForgottenPasswordRequest):
+        code = e.response.get("Error", {}).get("Code", "CognitoError")
+        msg = e.response.get("Error", {}).get("Message", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"{code}: {msg}")
+    # 2) RDS INSERT (비밀번호 해시 저장)
     try:
-        cognito_client.forgot_password(ClientId=CLIENT_ID, Username=req.email_info)
-        return {"status": "success", "message": "Verification code sent to email"}
-    except ClientError as e:
-        raise HTTPException(status_code=400, detail=e.response["Error"]["Message"])
-
-
-# 비밀번호 재설정 완료
-@router.post("/reset-password")
-def reset_password(req: ForgottenPasswordRequest):
-    try:
-        cognito_client.confirm_forgot_password(
-            ClientId=CLIENT_ID,
-            Username=req.email_info,
-            ConfirmationCode=req.confirmation_code,
-            Password=req.new_password,
+        pw_hash = bcrypt.hashpw(req.password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+        create_user(
+            db,
+            username=req.username,
+            password_hash=pw_hash,
+            email=req.email,
+            phone_number=req.phone_number,
+            address=req.address,
         )
-        return {"status": "success", "message": "Password reset successful"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"User creation failed: {str(e)}")
+    return resp
+
+
+@router.post("/confirm",response_model=ConfirmSignUpResponse)
+def confirm(req: ConfirmSignUpRequest, svc:AuthService = Depends(get_auth_service)):
+    """
+    회원가입 확인 엔드포인트
+    - 입력: username, confirmation_code
+    - 처리: 서비스가 Cognito confirm_sign_up 호출
+    - 반환: 확인 상태
+    """
+    try:
+        return svc.confirm_sign_up(req)
     except ClientError as e:
-        raise HTTPException(status_code=400, detail=e.response["Error"]["Message"])
+        code = e.response.get("Error", {}).get("Code", "CognitoError")
+        msg = e.response.get("Error", {}).get("Message", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"{code}: {msg}")
+
+@router.post("/signin", response_model=SignInResponse)
+def sign_in(req: SignInRequest, svc: AuthService = Depends(get_auth_service)):
+    """
+    로그인 엔드포인트
+    - 입력: username, password
+    - 처리: 서비스가 Cognito sign_in 호출
+    - 반환: 토큰 정보 및 챌린지 대응 정보
+    """
+    try:
+        return svc.sign_in(req)
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "CognitoError")
+        msg = e.response.get("Error", {}).get("Message", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"{code}: {msg}")
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(req: ForgotPasswordRequest, svc: AuthService = Depends(get_auth_service)):
+    """
+    비밀번호 재설정 코드 발송(ForgotPassword).
+    - 입력: username
+    - 반환: 발송 대상/채널
+    """
+    try:
+        return svc.forgot_password(req)
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "CognitoError")
+        msg = e.response.get("Error", {}).get("Message", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"{code}: {msg}")
+    
+@router.post("/reset-password", status_code = status.HTTP_200_OK)
+def confirm_forgot_password(req: ConfirmForgotPasswordRequest, svc: AuthService = Depends(get_auth_service)):
+    """
+    확인 코드 + 새 비밀번호 제출
+    - 입력: username, confirmation_code, new_password
+    - 반환: 상태 메시지
+    """
+    try:
+        return svc.confirm_forgot_password(req)
+    except ClientError as e:
+        code = e.response.get("Error", {}).get("Code", "CognitoError")
+        msg = e.response.get("Error", {}).get("Message", "Unknown error")
+        raise HTTPException(status_code=400, detail=f"{code}: {msg}")
