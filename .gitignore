@@ -202,3 +202,7 @@ src/.env
 .env
 .env.*
 *.pem
+
+# Python cache
+__pycache__/
+*.pyc
