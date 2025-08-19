@@ -1,6 +1,6 @@
 # src/app/crud/user.py
 from sqlalchemy.orm import Session
-from app.models import User
+from app.models.models import User
 
 
 def create_user(db: Session,*, username: str, password_hash: str, email: str | None, phone_number: str | None, address: str | None) -> User:

@@ -22,19 +22,22 @@ AuthService: Cognito 래퍼(CognitoIdpWrapper)를 주입받아 인증 업무 로
 """
 
 from __future__ import annotations
-
+from fastapi import Depends
 from botocore.exceptions import ClientError
-
-from app.schemas.auth_schemas import SignUpRequest, SignUpResponse
-from src.clients.cognito_wrapper import CognitoIdpWrapper
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.clients.cognito_wrapper import CognitoIdpWrapper
 from app.schemas.auth_schemas import(
     ForgotPasswordRequest,
     ForgotPasswordResponse,
-    ConfrimForgotPasswordRequest,
+    ConfirmForgotPasswordRequest,
+    SignUpRequest, SignUpResponse,SignInRequest,SignInResponse,
 )
+from app.core.config import settings
 
 class AuthService:
-    def __init__(self, cognito: CognitoIdpWrapper):
+    def __init__(self, db:Session, cognito: CognitoIdpWrapper):
+        self.db = db 
         self.cognito = cognito
     
     def sign_up(self, req:SignUpRequest) -> SignUpResponse:
@@ -65,6 +68,46 @@ class AuthService:
             )
         except ClientError as e:
             raise e
+    def sign_in(self, req: SignInRequest)->SignInResponse:
+        """
+        사용자 이름과 비밀번호로 로그인 인증을 시작하고 토큰 정보를 반환합니다.
+        - 챌린지(Challenge)가 필요한 경우, 토큰 대신 챌린지 관련 정보를 반환합니다.
+        """
+        try:
+            resp=self.cognito.initiate_auth(
+                username = req.username,
+                password = req.password
+            )
+            if "AuthenticationResult" in resp:
+                auth_result = resp["AuthenticationResult"]
+                return SignInResponse(
+                    access_token=auth_result.get("AccessToken"),
+                    id_token=auth_result.get("IdToken"),
+                    refresh_token=auth_result.get("RefreshToken"),
+                    expires_in=auth_result.get("ExpiresIn"),
+                    token_type=auth_result.get("TokenType"),
+                    challenge_name=None,
+                    session=None,
+                    challenge_parameters=None
+                )   
+            # 챌린지가 필요한 경우, 챌린지 정보를 반환합니다.
+            elif "ChallengeName" in resp:
+                return SignInResponse(
+                    access_token=None,
+                    id_token=None,
+                    refresh_token=None,
+                    expires_in=None,
+                    token_type=None,
+                    challenge_name=resp.get("ChallengeName"),
+                    session=resp.get("Session"),
+                    challenge_parameters=resp.get("ChallengeParameters")
+                ) 
+            # 예상치 못한 응답인 경우
+            else:
+                raise Exception("Unexpected response from Cognito service")    
+        except ClientError as e:
+            raise e
+
     def forgot_password(self, req: ForgotPasswordRequest) -> ForgotPasswordResponse:
         """
         비밀번호 재설정 코드 발송
@@ -96,7 +139,29 @@ class AuthService:
         except ClientError as e:
             raise e
         
-    
+def get_cognito_client() -> CognitoIdpWrapper:
+    """
+    CognitoIdpWrapper 인스턴스를 생성하고 반환합니다.
+    """
+    return CognitoIdpWrapper(
+        region_name=settings.aws_region,
+        user_pool_id=settings.cognito_user_pool_id,
+        client_id=settings.cognito_client_id,
+        client_secret=settings.cognito_client_secret
+    )
+
+def get_auth_service(
+    db: Session = Depends(get_db),
+    cognito_client: CognitoIdpWrapper = Depends(get_cognito_client)
+) -> AuthService:
+    """
+    AuthService 클래스의 인스턴스를 생성하고 반환합니다.
+    데이터베이스 세션과 Cognito 클라이언트 인스턴스를 주입합니다.
+    """
+    return AuthService(
+        db=db,
+        cognito=cognito_client
+    )
 
 
 

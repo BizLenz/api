@@ -1,7 +1,11 @@
 # src/app/core/config.py
+from fastapi import Depends
+from sqlalchemy.orm import Session
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Literal
+
+
 
 class Settings(BaseSettings):
     """환경 변수 기반 설정 클래스
@@ -69,10 +73,10 @@ class OtherSettings(BaseSettings):
     다른 설정을 위한 클래스
     필요에 따라 추가적인 설정을 여기에 정의할 수 있습니다.
     """
-    max_Size = 50 * 1024 * 1024
+    max_Size: int = 50 * 1024 * 1024
     
     # 프론트엔드 오리진 목록(프로젝트 설정에 맞게 수정)
-    ALLOWED_ORIGINS = [
+    ALLOWED_ORIGINS: list[str] = [
     "http://localhost:3000",
     "https://your-frontend.example.com",
     ]
