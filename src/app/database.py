@@ -10,6 +10,7 @@ def get_db_url() -> str:
     .env 파일에서 데이터베이스 연결 정보를 읽어 URL을 생성합니다.
     CI 환경에서는 기본값을 사용합니다.
     """
+
     # CI 환경 감지
     is_ci = os.getenv("CI") or os.getenv("GITHUB_ACTIONS")
     

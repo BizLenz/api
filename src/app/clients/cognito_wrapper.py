@@ -108,8 +108,27 @@ class CognitoIdpWrapper:
         msg = (username + self.client_id).encode("utf-8")
         digest = hmac.new(key, msg, hashlib.sha256).digest()
 
-        return base64.b54encode(digest).decode()
+        return base64.b64encode(digest).decode()
         
+    def initiate_auth(self, username: str, password: str) -> dict:
+        """
+        사용자 이름과 비밀번호로 로그인 인증을 시작하고,
+        boto3 클라이언트의 initiate_auth 메서드를 호출합니다.
+        """
+        params = {
+            "AuthFlow": "USER_PASSWORD_AUTH",
+            "ClientId": self.client_id,
+            "AuthParameters": {
+                "USERNAME": username,
+                "PASSWORD": password
+            }
+        }
+        
+        if self.client_secret:
+            params["AuthParameters"]["SECRET_HASH"] = self._calc_secret_hash(username)
+
+        return self.client.initiate_auth(**params)
+    
     def sign_up(
         self,
         username: str,

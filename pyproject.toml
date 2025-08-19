@@ -24,7 +24,9 @@ dependencies = [
     "aiofiles",
     "sqlalchemy",
     "alembic",
-    "psycopg2-binary"
+    "psycopg2-binary",
+    "pydantic-settings",
+    "bcrypt"
 ]
 
 [tool.pytest.ini_options]

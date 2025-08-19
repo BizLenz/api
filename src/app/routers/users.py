@@ -13,8 +13,7 @@ from app.schemas.auth_schemas import (
     ConfirmForgotPasswordRequest,
 )
 
-from app.services.auth_service import AuthService
-from app.core.config import get_auth_service
+from app.services.auth_service import AuthService, get_auth_service
 from app.database import get_db
 from app.crud.user import create_user
 from sqlalchemy.orm import Session
