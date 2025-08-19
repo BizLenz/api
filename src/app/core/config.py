@@ -1,6 +1,4 @@
 # src/app/core/config.py
-from fastapi import Depends
-from sqlalchemy.orm import Session
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from typing import Literal
