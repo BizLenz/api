@@ -28,7 +28,7 @@ import base64
 import hashlib
 import hmac
 import re
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import boto3
 from botocore.client import BaseClient
