@@ -110,75 +110,7 @@ class CognitoIdpWrapper:
 
         return base64.b64encode(digest).decode()
         
-    def initiate_auth(self, username: str, password: str) -> dict:
-        """
-        사용자 이름과 비밀번호로 로그인 인증을 시작하고,
-        boto3 클라이언트의 initiate_auth 메서드를 호출합니다.
-        """
-        params = {
-            "AuthFlow": "USER_PASSWORD_AUTH",
-            "ClientId": self.client_id,
-            "AuthParameters": {
-                "USERNAME": username,
-                "PASSWORD": password
-            }
-        }
-        
-        if self.client_secret:
-            params["AuthParameters"]["SECRET_HASH"] = self._calc_secret_hash(username)
-
-        return self.client.initiate_auth(**params)
     
-    def sign_up(
-        self,
-        username: str,
-        password: str,
-        *,
-        email: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        address: Optional[str] = None,
-        user_attributes: Optional[Dict[str, str]] = None,
-        secret_hash_username: Optional[str] = None,
-        default_country_code: str = "+82",
-    ) -> Dict:
-        """
-        RDS users 테이블 스키마를 반영한 회원가입 타입
-        - username: 고유 식별자(이메일/전화번호/임의 문자열). User Pool 설정에 따라 이메일/전화번호 형식이면 자동 매핑될 수 있음.[1]
-        - password: Cognito에 원문 비밀번호 전달(해시 X)
-        - email: 표준 속성 email로 전달[1][2]
-        - phone_number: 표준 속성 phone_number(E.164 필수)[1][2]
-        - address: custome된 address로 전달(사전 정의 필요)
-        - user_attributes: 추가 속성이 있으면 병합
-        - SecretHash: App Client에 secret이 있으면 필수[3][10][12]
-        """
-        attrs: List[Dict[str, str]] = []
-
-        if email:
-            attrs.append({"Name": "email", "Value": str(email)})
-        if phone_number:
-            e164 = to_e164(phone_number, default_country_code = default_country_code)
-            attrs.append({"Name": "phone_number", "Value": e164})
-        if address:
-            attrs.append({"Name": "address", "Value": str(address)})
-
-        if user_attributes:
-            attrs.extend(user_attributes)
-        
-        kwargs: Dict = {
-            "ClientId": self.client_id,
-            "Username": username,
-            "Password": password,
-        }
-        if attrs:
-            kwargs["UserAttributes"] = attrs
-        if self.client_secret:
-            base_username = secret_hash_username or username
-            kwargs["SecretHash"] = self._calc_secret_hash(base_username)
-
-        try:
-            return self.client.sign_up(**kwargs)
-        except ClientError as e:
-            raise e
 
     def forgot_password(self, username: str, secret_hash_username: Optional[str] = None)-> Dict:
         """
