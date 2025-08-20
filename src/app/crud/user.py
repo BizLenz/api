@@ -4,6 +4,7 @@ from app.models.models import User
 from sqlalchemy import update 
 from sqlalchemy.exc import IntegrityError 
 from app.models.models import User
+from typing import Optional
 
 def get_by_sub(db: Session, cognito_sub: str) -> User | None:
     """
@@ -49,7 +50,7 @@ def create_if_not_exists(db:Session, cognito_sub:str)-> User:
     return inst
 
 
-def increment_token_usage(db: Session, cognito_sub: str, inc: int) -> User: None:
+def increment_token_usage(db: Session, cognito_sub: str, inc: int) -> User | None:
     """
     사용자의 누적 토큰 사용량을 원자적으로(atomically) 증가시킵니다.
     원자적 연산: 여러 단계로 구성된 작업이 중간에 중단되지 않고 한 번에 실행되는 것을 보장합니다.

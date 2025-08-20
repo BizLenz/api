@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Dict, Any, Optional
 from datetime import datetime
 
 
@@ -37,12 +36,6 @@ class UserOut(UserBase):
     created_at: datetime = Field(..., description = "서비스 프로필 생성 일시")
     total_token_usage: int = Field(0, description="누적 토큰 사용량")
 
-class UserDetailOut(UserOut):
-    """
-    상세 응답 스키마: 사용자의 연관 BusinessPlan 목록까지 함께 내려줄 때 사용
-    - 목록 API에서는 과도한 응답이 될 수 있으므로 상세 조회 API에서만 선택적으로 사용하세요.
-    """
-    business_plans: list[BusinessPlanRef] = Field(default_factory=list)
 
 
 class ForgotPasswordRequest(BaseModel):

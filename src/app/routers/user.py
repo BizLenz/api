@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from app.core.database import get_db
+from app.database import get_db
 from app.schemas.user import (
     ConfirmForgotPasswordRequest,
     ForgotPasswordRequest,
