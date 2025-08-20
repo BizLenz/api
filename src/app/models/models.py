@@ -1,4 +1,3 @@
-# src/app/models/models.py
 from sqlalchemy import (
     Column,
     Integer,
@@ -130,7 +129,8 @@ class AnalysisJob(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, comment="분석 작업 고유 ID")
     plan_id = Column(Integer, ForeignKey("business_plans.id", ondelete="CASCADE"), nullable=False, comment="분석 대상 사업계획서")
     job_type = Column(String(50), nullable=False, comment="분석 유형 (basic, market, industry 등)")
-    status = Column(String(20), nullable=False, comment="작업 상태 (pending, running, completed, failed)")
+    # 🔄 수정: 프론트엔드 기준으로 상태값 통일 (running → processing)
+    status = Column(String(20), nullable=False, comment="작업 상태 (pending, processing, completed, failed)")
     token_usage = Column(Integer, comment="이 작업에서 사용된 토큰 양")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), comment="작업 생성(요청) 시각")
     
@@ -218,18 +218,7 @@ class AnalysisResult(Base):
     details = Column(JSONB, comment="분석 유형별 특화 데이터 저장소 (모든 상세 평가 데이터 통합)")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), comment="생성 일시")
     
-    # 🗑️ 삭제된 컬럼들: 모두 details (JSONB)로 통합
-    # - evaluation_criteria
-    # - metrics
-    # - benchmark_data
-    # - weight
-    # - importance_level
-    # - confidence_score
-    # - version
-    # - sources
-    # - feedback_points
-    # - bmc_data
-    # - visualization_path
+
     
     # 인덱스 - API 응답 최적화 (단순화된 구조에 맞춰 조정)
     __table_args__ = (
