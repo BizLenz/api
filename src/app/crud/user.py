@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from app.models.models import User
 from sqlalchemy import update 
 from sqlalchemy.exc import IntegrityError 
-from app.models.models import User
 from typing import Optional
 
 def get_by_sub(db: Session, cognito_sub: str) -> User | None:
