@@ -1,12 +1,10 @@
 from __future__ import annotations
 from fastapi import HTTPException, status
-from botocore.exceptions import ClientError
 from sqlalchemy.orm import Session
 from app.crud import user as user_crud
 from app.models.models import User
 from app.core.config import settings
 from app.clients.cognito_wrapper import CognitoIdpWrapper
-from app.schemas.user import ForgotPasswordResponse
 
 
 cognito_wrapper = CognitoIdpWrapper(

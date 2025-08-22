@@ -28,11 +28,10 @@ import base64
 import hashlib
 import hmac
 import re
-from typing import Dict, Optional
+from typing import Optional
 
 import boto3
 from botocore.client import BaseClient
-from botocore.exceptions import ClientError
 
 E164_RE = re.compile(r"^\+[1-9]\d{1,14}$")
 
