@@ -38,15 +38,3 @@ class UserOut(UserBase):
 
 
 
-class ForgotPasswordRequest(BaseModel):
-    username: str = Field(..., description = "비밀번호 재설정 대상 username")
-
-class ForgotPasswordResponse(BaseModel):
-    destination: str | None = Field(default=None, description="코드 전달 대상(가려진 이메일/전화)")
-    delivery_medium: str | None = Field(default=None, description="전달 수단(EMAIL/SMS 등)")
-    attribute_name: str | None = Field(default=None, description="전달 대상 속성명(이메일/전화 등)")
-
-class ConfirmForgotPasswordRequest(BaseModel):
-    username: str = Field(..., description = "비밀번호 재설정 대상 username")
-    confirmation_code: str = Field(..., description = "사용자에게 발송된 확인 코드")
-    new_password: str = Field(..., min_length=8, description = "새로운 비밀번호 (최소 8자 이상)")

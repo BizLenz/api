@@ -33,27 +33,6 @@ def create_user_profile(
     return UserOut.model_validate(user)
 
 
-@router.post("/forgot-password", response_model=ForgotPasswordResponse)
-def forgot_password(request: ForgotPasswordRequest):
-    """
-    비밀번호 재설정을 위한 확인 코드 발송을 요청합니다.
-    - 실제 로직은 서비스 레이어가 담당합니다.
-    """
-    return auth_service.request_password_reset(username=request.username)
-
-@router.post("/confirm-forgot-password", status_code=status.HTTP_204_NO_CONTENT)
-def confirm_forgot_password(request: ConfirmForgotPasswordRequest):
-    """
-    확인 코드와 새 비밀번호로 비밀번호 재설정을 완료합니다.
-    - 성공 시에는 본문(body) 없이 204 No Content 상태 코드를 반환합니다.
-    """
-    auth_service.confirm_password_reset(
-        username=request.username,
-        confirmation_code=request.confirmation_code,
-        new_password=request.new_password,
-    )
-    return
-
 
 # 사용자 프로필 관련 엔드포인트
 @router.get("/users/me",response_model=UserOut)
