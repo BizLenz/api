@@ -28,11 +28,10 @@ import base64
 import hashlib
 import hmac
 import re
-from typing import Dict, List, Optional
+from typing import Optional
 
 import boto3
 from botocore.client import BaseClient
-from botocore.exceptions import ClientError
 
 E164_RE = re.compile(r"^\+[1-9]\d{1,14}$")
 
@@ -108,103 +107,7 @@ class CognitoIdpWrapper:
         msg = (username + self.client_id).encode("utf-8")
         digest = hmac.new(key, msg, hashlib.sha256).digest()
 
-        return base64.b54encode(digest).decode()
+        return base64.b64encode(digest).decode()
         
-    def sign_up(
-        self,
-        username: str,
-        password: str,
-        *,
-        email: Optional[str] = None,
-        phone_number: Optional[str] = None,
-        address: Optional[str] = None,
-        user_attributes: Optional[Dict[str, str]] = None,
-        secret_hash_username: Optional[str] = None,
-        default_country_code: str = "+82",
-    ) -> Dict:
-        """
-        RDS users 테이블 스키마를 반영한 회원가입 타입
-        - username: 고유 식별자(이메일/전화번호/임의 문자열). User Pool 설정에 따라 이메일/전화번호 형식이면 자동 매핑될 수 있음.[1]
-        - password: Cognito에 원문 비밀번호 전달(해시 X)
-        - email: 표준 속성 email로 전달[1][2]
-        - phone_number: 표준 속성 phone_number(E.164 필수)[1][2]
-        - address: custome된 address로 전달(사전 정의 필요)
-        - user_attributes: 추가 속성이 있으면 병합
-        - SecretHash: App Client에 secret이 있으면 필수[3][10][12]
-        """
-        attrs: List[Dict[str, str]] = []
-
-        if email:
-            attrs.append({"Name": "email", "Value": str(email)})
-        if phone_number:
-            e164 = to_e164(phone_number, default_country_code = default_country_code)
-            attrs.append({"Name": "phone_number", "Value": e164})
-        if address:
-            attrs.append({"Name": "address", "Value": str(address)})
-
-        if user_attributes:
-            attrs.extend(user_attributes)
-        
-        kwargs: Dict = {
-            "ClientId": self.client_id,
-            "Username": username,
-            "Password": password,
-        }
-        if attrs:
-            kwargs["UserAttributes"] = attrs
-        if self.client_secret:
-            base_username = secret_hash_username or username
-            kwargs["SecretHash"] = self._calc_secret_hash(base_username)
-
-        try:
-            return self.client.sign_up(**kwargs)
-        except ClientError as e:
-            raise e
-
-    def forgot_password(self, username: str, secret_hash_username: Optional[str] = None)-> Dict:
-        """
-        비밀번호 재설정 코드 발송(ForgotPassword).
-        - 필수: ClientId, Username
-        - 옵션: SecretHash(클라이언트 시크릿 사용 시)
-        - 응답: CodeDeliveryDetails(발송 채널/대상) 포함
-        """
-        kwargs: Dict = {
-            "ClientId": self.client_id,
-            "Username": username,
-        }
-        if self.client_secret:
-            base_username = secret_hash_username or username
-            kwargs["SecretHash"] = self._calc_secret_hash(base_username)
-        try:
-            return self.client.forgot_password(**kwargs) # 공식 메서드
-        except ClientError as e:
-            raise e
-
-
-    def confirm_forgot_password(
-        self,
-        username: str,
-        confirmation_code: str,
-        new_password: str,
-        secret_hash_username: Optional[str] = None,
-    ) -> Dict:
-        """
-        비밀번호 재설정 완료(ConfirmForgotPassword).
-        - 필수: ClientId, Username, ConfirmationCode, Password(새 비밀번호)
-        - 옵션: SecretHash(클라이언트 시크릿 사용 시)
-        - 응답: 빈 dict {} 성공 시
-        """
-        kwargs: Dict = {
-            "ClientId": self.client_id,
-            "Username": username,
-            "ConfirmationCode": confirmation_code,
-            "Password": new_password,
-        }
-        if self.client_secret:
-            base_username = secret_hash_username or username
-            kwargs["SecretHash"] = self._calc_secret_hash(base_username)
-        try:
-            return self.client.confirm_forgot_password(**kwargs)  # 공식 메서드
-        except ClientError as e:
-            raise e
+    
         

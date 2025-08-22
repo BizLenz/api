@@ -42,7 +42,7 @@ Resources:
     Properties:
       FunctionName: bizlenz-fastapi-rest-proxy
       CodeUri: .
-      Handler: main.handler
+      Handler: api.src.app.main.handler
       Policies:
         - AWSLambdaBasicExecutionRole
       Events:
