@@ -4,9 +4,6 @@ from fastapi import APIRouter, Depends, Header, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.user import (
-    ConfirmForgotPasswordRequest,
-    ForgotPasswordRequest,
-    ForgotPasswordResponse,
     UserCreate,
     UserOut,
 )
