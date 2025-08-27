@@ -1,7 +1,6 @@
 # src/app/schemas/evaluation.py
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
-import json
 
 # =====================================================
 # 평가 기준 상수 정의 (예비창업패키지 기준)
