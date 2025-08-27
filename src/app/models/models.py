@@ -28,25 +28,14 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True, comment="서비스 내부에서 사용하는 고유 ID")
     cognito_sub = Column(String(255), unique=True, nullable=False, comment="Cognito 사용자 고유 식별자 (JWT sub)")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), comment="서비스 프로필 생성 일시")
-    updated_at = Column(
-        TIMESTAMP(timezone=True), 
-        server_default=func.now(), 
-        onupdate=func.now(),
-        comment="프로필 수정 일시"
-    )
     
     # 토큰 관리 필드
     total_token_usage = Column(Integer, server_default='0', comment="누적 토큰 사용량")
-    
-    # 서비스 프로필 필드 (선택적)
-    display_name = Column(String(100), comment="표시 이름 (선택)")
-    last_login_at = Column(TIMESTAMP(timezone=True), comment="마지막 로그인 시간")
     
     # 인덱스 - JWT 검증 및 사용자 관리 최적화
     __table_args__ = (
         Index('idx_users_cognito_sub', 'cognito_sub'),  # 🔥 JWT 검증용 - 최고 우선순위
         Index('idx_users_token_usage', 'total_token_usage'),  # 토큰 사용량 조회
-        Index('idx_users_last_login', 'last_login_at'),  # 활성 사용자 분석
         Index('idx_users_created_at', 'created_at'),
     )
     
@@ -56,7 +45,6 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan"
     )
-
 # -----------------------
 # BusinessPlans 테이블 (파일 관리 최적화)
 # -----------------------
