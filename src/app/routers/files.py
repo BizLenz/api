@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any, List
 from botocore.exceptions import ClientError, BotoCoreError
 from uuid import uuid4
 from app.schemas.file_schemas import FileUploadRequest
-from app.crud.create_file_metadata import create_file_metadata
+from app.crud.file_metadata import create_file_metadata
 from app.core.config import settings  # 환경설정 객체 import
 from app.database import get_db
 from app.core.security import require_scope, get_claims
