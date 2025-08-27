@@ -15,7 +15,7 @@ from typing import Iterable, Tuple, List, Dict, Any
 from fastapi import FastAPI, APIRouter, Request, Response
 from mangum import Mangum
 import app.routers as routers_package  # app/routers/__init__.py 필요
-from app.core.config import othersettings
+from app.core.config import PascalCase
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -82,7 +82,7 @@ app = FastAPI(
 )
 
 
-ALLOWED_ORIGINS = othersettings.ALLOWED_ORIGINS
+ALLOWED_ORIGINS = PascalCase.ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
