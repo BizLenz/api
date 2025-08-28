@@ -80,7 +80,7 @@ class PascalCase(BaseSettings):
             return []
         return [item.strip() for item in value.split(",") if item.strip()]
 
-    max_size: int = 50 * 1024 * 1024
+    max_size: int = 50 * 1024 * 1024 # 파일 최대 크기: 50MB
     
     # 프론트엔드 오리진 목록(프로젝트 설정에 맞게 수정)
     ALLOWED_ORIGINS: list[str] = [

@@ -1,5 +1,6 @@
 # src/app/schemas/evaluation.py
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
+from typing_extensions import Self
 from typing import Optional, List, Dict, Any
 
 # =====================================================
@@ -66,25 +67,22 @@ class EvaluationRequest(BaseModel):
 
 class SectionResult(BaseModel):
     """섹션별 결과"""
-    score: Optional[float] = Field(None, description="섹션 점수", ge=0, le=999.99)
+    score: Optional[float] = Field(None, description="섹션 점수", ge=0)
     max_score: int = Field(..., description="섹션 최대 점수")
     analysis: Optional[str] = Field(None, description="Gemini 분석 내용")
     strengths: Optional[List[str]] = Field(default_factory=list, description="섹션별 강점")
     weaknesses: Optional[List[str]] = Field(default_factory=list, description="섹션별 약점")
     evidence_text: Optional[str] = Field(None, description="관련 내용 발췌/요약")
     
-    @field_validator('score')
-    @classmethod
-    def score_in_range(cls, v, info):
-        if v is not None and 'max_score' in info.data:
-            max_score = info.data['max_score']
-            if not (0 <= v <= max_score):
-                raise ValueError(f'점수는 0과 {max_score} 사이여야 합니다.')
-        return v
+    @model_validator(mode='after')
+    def validate_score_range(self):
+        if self.score is not None and self.score > self.max_score:
+            raise ValueError(f'점수는 0과 {self.max_score} 사이여야 합니다.')
+        return self
 
 class CategoryResult(BaseModel):
     """카테고리별 결과 (예비창업패키지 최소기준 적용)"""
-    score: Optional[float] = Field(None, description="카테고리 총점", ge=0, le=999.99)
+    score: Optional[float] = Field(None, description="카테고리 총점", ge=0)
     max_score: int = Field(..., description="카테고리 최대 점수")
     minimum_required: int = Field(..., description="최소 득점 기준")
     passed: Optional[bool] = Field(None, description="최소 기준 통과 여부")
@@ -113,7 +111,7 @@ class EvaluationResponse(BaseModel):
     
     # 성공시에만 채워지는 필드들
     evaluation_id: Optional[str] = Field(None, description="평가 고유 ID")
-    total_score: Optional[float] = Field(None, description="총점", ge=0, le=999.99)
+    total_score: Optional[float] = Field(None, description="총점", ge=0, le=100)
     
     # 파일 정보 (BusinessPlan 테이블 연동)
     file_info: Optional[FileInfo] = Field(None, description="파일 정보")
