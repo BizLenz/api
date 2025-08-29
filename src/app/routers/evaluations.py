@@ -9,7 +9,6 @@ from decimal import Decimal
 from app.database import get_db
 from app.models import AnalysisJob, AnalysisResult, BusinessPlan
 from app.schemas.evaluation import (
-    EvaluationRequest, 
     EvaluationResponse, 
     evaluation_response_to_db_json
 )
