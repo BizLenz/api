@@ -241,6 +241,7 @@ pyrightconfig.json
 # CMake
 cmake-build-*/
 
+
 # Mongo Explorer plugin
 .idea/**/mongoSettings.xml
 
@@ -285,6 +286,9 @@ fabric.properties
 
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode.env
 .env.*
-!.env.example
 *.pem
 src/.env
+
+
+.DS_Store
+**/.DS_Store
