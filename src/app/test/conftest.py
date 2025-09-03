@@ -4,6 +4,7 @@ import sys
 import pytest
 from httpx import AsyncClient, ASGITransport
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
 os.environ.setdefault("AWS_REGION", "us-east-1")
