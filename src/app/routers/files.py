@@ -85,7 +85,7 @@ async def delete_file(
         s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=key)
         return {"message": "File deleted successfully"}
     except (ClientError, BotoCoreError, Exception) as e:
-        raise to_http_exception(e)
+        raise to_http_exception(e) 
 
 # S3 파일 검색 엔드포인트
 @files.get("/search")

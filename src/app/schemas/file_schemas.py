@@ -73,7 +73,7 @@ class FileUploadRequest(BaseModel):
         AWS Lambda의 페이로드 제한과 사용자 경험을 고려
         """
         # 최대 500MB 제한
-        max_size = PascalCase.max_Size
+        max_size = PascalCase.max_size
         if v > max_size:
             max_size_mb = max_size / (1024 * 1024)
             raise ValueError(f"파일 크기는 {max_size_mb}MB를 초과할 수 없습니다.")
