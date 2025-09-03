@@ -1,13 +1,11 @@
 from __future__ import annotations
 from typing import Any, Dict
-import types
 import pytest 
 from fastapi.testclient import TestClient 
 
 from main import app
 from app.database import get_db
 from app.services import auth_service
-from app.schemas.user import UserCreate, UserOut
 from datetime import datetime, timezone
 
 @pytest.fixture()
@@ -86,7 +84,7 @@ def client():
     - 실제 서버를 띄우지 않고 WSGI 레벨에서 FastAPI 앱을 직접 호출합니다.
     """
     with TestClient(app) as C:
-        yield c 
+        yield C     
 
 def test_signup_unauthorized_without_header(client, fake_auth_service):
     """
