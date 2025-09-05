@@ -1,10 +1,10 @@
-from pydantic import BaseModel, Emailstr, Field, Dict, Any
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional, Dict, Any
 
 class SignUpRequest(BaseModel):
     username: str = Field(..., description ="사용자 이름, 이메일/전화번호 형식도 가능")
     password: str =Field(..., description="비밀번호, 최소 8자 이상, Cognito에 전달할 원문 비밀번호")
-    email: Optional[Emailstr] = Field(None, description = "이메일 주소")
+    email: Optional[EmailStr] = Field(None, description = "이메일 주소")
     phone_number: Optional[str] = Field(None, description="RDS users.phone_number → Cognito phone_number(E.164:+821012345678)")
     address: Optional[str] = Field(None, description = "주소 -> Cognito custom:address")
     
