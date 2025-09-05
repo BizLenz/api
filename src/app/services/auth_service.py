@@ -30,7 +30,7 @@ from src.clients.cognito_wrapper import CognitoIdpWrapper
 from app.schemas.auth_schemas import(
     ForgotPasswordRequest,
     ForgotPasswordResponse,
-    ConfrimForgotPasswordRequest,
+    ConfirmForgotPasswordRequest,
 )
 
 class AuthService:
@@ -80,7 +80,7 @@ class AuthService:
         except ClientError as e:
             raise e
             
-    def confirm_forgot_password(self, req: ConfrimForgotPasswordRequest) -> dict:
+    def confirm_forgot_password(self, req: ConfirmForgotPasswordRequest) -> dict:
         """
         코드 확인 및 새 비밀번호 설정
         성공 시 빈 dict 반환
