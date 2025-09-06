@@ -22,6 +22,7 @@ s3_client = boto3.client(
     region_name=settings.aws_region,
 )
 
+
 # PDF Presigned URL 발급 엔드포인트
 @files.post("/upload", response_model=dict)
 def upload(
@@ -55,6 +56,7 @@ def upload(
     except (ClientError, BotoCoreError, Exception) as err:
         raise to_http_exception(err)
 
+
 # RDS 파일 메타데이터 저장 엔드포인트
 @files.post("/upload/metadata", response_model=dict)
 def save_file_metadata(
@@ -69,7 +71,10 @@ def save_file_metadata(
         db_file = create_file_metadata(db, metadata)
         return {"message": "File metadata saved successfully", "file_id": db_file.id}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving file metadata: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error saving file metadata: {str(e)}"
+        )
+
 
 # S3 파일 삭제 엔드포인트
 @files.delete("/{key:path}")
@@ -87,12 +92,15 @@ async def delete_file(
     except (ClientError, BotoCoreError, Exception) as e:
         raise to_http_exception(e)
 
+
 # S3 파일 검색 엔드포인트
 @files.get("/search")
 async def search_files(
     keywords: Optional[str] = Query(None, description="파일 이름 검색 키워드"),
     extension: Optional[str] = Query(None, description="파일 확장자 (예: pdf)"),
-    claims: Dict[str, Any] = Depends(get_claims),  # 라우터 레벨 read 검사 + 실제 claims 접근
+    claims: Dict[str, Any] = Depends(
+        get_claims
+    ),  # 라우터 레벨 read 검사 + 실제 claims 접근
 ):
     """
     파일 이름 및 확장자 기반 검색 엔드포인트
@@ -106,13 +114,17 @@ async def search_files(
 
         files = response["Contents"]
         result: List[Dict[str, Any]] = []
-        normalized_extension = f".{extension.lower().lstrip('.')}" if extension else None
+        normalized_extension = (
+            f".{extension.lower().lstrip('.')}" if extension else None
+        )
 
         for obj in files:
             file_name = obj["Key"]
             if keywords and keywords.lower() not in file_name.lower():
                 continue
-            if normalized_extension and not file_name.lower().endswith(normalized_extension):
+            if normalized_extension and not file_name.lower().endswith(
+                normalized_extension
+            ):
                 continue
             result.append(
                 {
@@ -125,12 +137,19 @@ async def search_files(
     except (ClientError, BotoCoreError, Exception) as e:
         raise to_http_exception(e)
 
+
 # S3 파일 목록 페이지네이션 조회 엔드포인트
 @files.get("/select")
 async def select_files(
-    limit: int = Query(10, ge=1, le=1000, description="페이지당 조회할 객체 수 (1~1000)"),
-    continuation_token: Optional[str] = Query(None, description="다음 페이지 조회를 위한 ContinuationToken"),
-    claims: Dict[str, Any] = Depends(get_claims),  # 라우터 레벨 read 검사 + 실제 claims 접근
+    limit: int = Query(
+        10, ge=1, le=1000, description="페이지당 조회할 객체 수 (1~1000)"
+    ),
+    continuation_token: Optional[str] = Query(
+        None, description="다음 페이지 조회를 위한 ContinuationToken"
+    ),
+    claims: Dict[str, Any] = Depends(
+        get_claims
+    ),  # 라우터 레벨 read 검사 + 실제 claims 접근
 ) -> Dict:
     """
     S3 버킷 내 객체를 커서 기반 페이지네이션 방식으로 조회합니다.
@@ -162,6 +181,9 @@ async def select_files(
             for obj in page["Contents"]
         ]
         next_token = page.get("NextContinuationToken")
-        return {"data": files_list, "pagination": {"next_token": next_token, "count": len(files_list)}}
+        return {
+            "data": files_list,
+            "pagination": {"next_token": next_token, "count": len(files_list)},
+        }
     except (ClientError, BotoCoreError, Exception) as e:
         raise to_http_exception(e)

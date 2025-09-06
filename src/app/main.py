@@ -14,14 +14,15 @@ from types import ModuleType
 from typing import Iterable, Tuple, List, Dict, Any
 from fastapi import FastAPI, APIRouter, Request, Response
 from mangum import Mangum
-import app.routers as routers_package  # app/routers/__init__.py 필요
+import app.routers as routers_package
 from app.core.config import OtherSettings
 
 from fastapi.middleware.cors import CORSMiddleware
 
 
-
-def _iter_submodules(package: ModuleType, base_pkg_name: str) -> Iterable[Tuple[str, ModuleType]]:
+def _iter_submodules(
+    package: ModuleType, base_pkg_name: str
+) -> Iterable[Tuple[str, ModuleType]]:
     """
     특정 “패키지 객체”를 시작점으로, 그 하위의 모든 서브모듈과 서브패키지를 재귀적으로 탐색해 import하고,
      “모듈의 전체 경로(str)”와 “모듈 객체(ModuleType)” 쌍을 순차적으로 넘겨줍니다.
@@ -42,20 +43,28 @@ def _iter_submodules(package: ModuleType, base_pkg_name: str) -> Iterable[Tuple[
         else:
             yield full, module
 
+
 def _module_to_prefix(full_module_name: str, root_pkg: str) -> str:
     """
-    루트 제거: full_module_name에서 루트 패키지 접두사(root_pkg + ".")를 잘라내, 
+    루트 제거: full_module_name에서 루트 패키지 접두사(root_pkg + ".")를 잘라내,
     순수 하위 경로만 추출합니다. 예: app.routers.files.upload → files.upload
     URL 경로화:
         - 점(.)을 슬래시(/)로 바꾸고 앞에 "/"를 붙여 “/files/upload” 형태로 만듭니다.
-        - 마지막에 불필요한 슬래시가 붙지 않도록 rstrip("/")로 정리합니다.    
+        - 마지막에 불필요한 슬래시가 붙지 않도록 rstrip("/")로 정리합니다.
     """
-    trimmed = full_module_name[len(root_pkg) + 1 :] if full_module_name.startswith(root_pkg + ".") else full_module_name
+    trimmed = (
+        full_module_name[len(root_pkg) + 1 :]
+        if full_module_name.startswith(root_pkg + ".")
+        else full_module_name
+    )
     parts: List[str] = [p for p in trimmed.split(".") if p]
     prefix = "/" + "/".join(parts)
     return prefix.rstrip("/") if prefix != "/" else "/"
 
-def include_routers_recursive(app: FastAPI, root_pkg: ModuleType, root_pkg_name: str) -> None:
+
+def include_routers_recursive(
+    app: FastAPI, root_pkg: ModuleType, root_pkg_name: str
+) -> None:
     """
     루트 패키지부터 시작해 하위 모든 모듈을 재귀적으로 훑으면서,
      각 모듈에 정의된 APIRouter 인스턴스를 FastAPI 앱에 자동 등록합니다
@@ -75,6 +84,7 @@ def include_routers_recursive(app: FastAPI, root_pkg: ModuleType, root_pkg_name:
                 tag = prefix.strip("/").split("/")[-1] or "root"
                 app.include_router(attr, prefix=prefix, tags=[tag])
 
+
 app = FastAPI(
     title="BizLenz API (REST + Cognito User Pools)",
     description="Cognito User Pool Authorizer로 보호되는 REST API. Lambda(FastAPI+Mangum).",
@@ -86,8 +96,8 @@ ALLOWED_ORIGINS = OtherSettings.ALLOWED_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,          # (credentials 사용 시 구체 오리진 권장)
-    allow_credentials=True,                 # 쿠키/인증정보 포함 요청 허용 시 True
+    allow_origins=ALLOWED_ORIGINS,  # (credentials 사용 시 구체 오리진 권장)
+    allow_credentials=True,  # 쿠키/인증정보 포함 요청 허용 시 True
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Authorization", "Content-Type"],
     max_age=86400,
@@ -97,6 +107,7 @@ app.add_middleware(
 
 include_routers_recursive(app, routers_package, "app.routers")
 logger = logging.getLogger("bizlenz.auth")  # 인증/인가 영역 전용 로거
+
 
 # REST API(v1)용: requestContext.authorizer.claims 경로 사용
 @app.middleware("http")
@@ -116,20 +127,18 @@ async def inject_claims(request: Request, call_next):
         if isinstance(authorizer, dict):
             # 일부 환경에서 'claims' 속성이 없거나 커스텀 context로 제공될 수 있으니 방어적으로 처리
             claims = authorizer.get("claims") or {}
-            #AWS API Gateway (REST API 타입)가 Cognito Authorizer를 통해 요청을 검증하면, requestContext.authorizer.claims 경로에 검증된 JWT의 payload(claims)를 담아줍니다.
+            # AWS API Gateway (REST API 타입)가 Cognito Authorizer를 통해 요청을 검증하면, requestContext.authorizer.claims 경로에 검증된 JWT의 payload(claims)를 담아줍니다.
             if not claims:
                 jwt_obj = authorizer.get("jwt") or {}
                 if isinstance(jwt_obj, dict):
                     jwt_claims = jwt_obj.get("claims")
-                    if isinstance(jwt_claims,dict) and jwt_claims:
+                    if isinstance(jwt_claims, dict) and jwt_claims:
                         claims = jwt_claims
                         logger.debug("Extracted claims from HTTP authorizer.jwt.claims")
         else:
             logger.debug("Unexpected requestContext type: %s", type(rc).__name__)
     else:
         logger.debug("aws.event not found on request.scope or wrong type")
-            
-
 
     # cognito:groups 표준화(문자열 -> 리스트, 누락 -> 빈 리스트)
     raw_groups = claims.get("cognito:groups")
@@ -140,7 +149,9 @@ async def inject_claims(request: Request, call_next):
         만약 그룹 정보가 아예 없다면(None), 빈 리스트 []를 할당합니다.
         이렇게 데이터의 형식을 일관되게 만들어주면, 이후 로직에서 if 'admin' in user_groups: 와 같이 타입 걱정 없이 안전하고 편리하게 그룹을 확인할 수 있습니다.
         """
-        claims["cognito:groups"] = [g.strip() for g in raw_groups.split(",") if g.strip()]
+        claims["cognito:groups"] = [
+            g.strip() for g in raw_groups.split(",") if g.strip()
+        ]
     elif raw_groups is None:
         claims["cognito:groups"] = []
 
@@ -148,8 +159,9 @@ async def inject_claims(request: Request, call_next):
 
     response: Response = await call_next(request)
     # 미들웨어의 본분을 다했으니, call_next를 호출하여 요청을 다음 단계(다른 미들웨어 또는 실제 API 엔드포인트)로 전달합니다.
-    
+
     return response
+
 
 # Lambda 핸들러
 handler = Mangum(app, lifespan="off")

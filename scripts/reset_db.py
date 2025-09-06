@@ -10,7 +10,7 @@ load_dotenv()
 
 # 'src' 폴더를 파이썬 경로에 동적으로 추가하여 'from app...' import가 가능하게 함
 project_root = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.join(project_root, 'src'))
+sys.path.append(os.path.join(project_root, "src"))
 
 # 데이터베이스 연결 URL 생성
 DB_USER = os.getenv("DB_USER")
@@ -33,9 +33,9 @@ engine = create_engine(DATABASE_URL)
 if os.getenv("ENV") == "production":
     print("🚨 경고: 현재 운영 환경(production)으로 설정되어 있습니다.")
     print("이 스크립트를 실행하면 데이터베이스의 모든 데이터가 영구적으로 삭제됩니다.")
-    
+
     confirm = input("정말로 데이터베이스를 초기화하려면 'YES'를 입력하세요: ")
-    
+
     if confirm != "YES":
         print("작업이 취소되었습니다.")
         sys.exit(0)
@@ -50,7 +50,7 @@ try:
         # 이것이 모든 것을 초기화하는 가장 확실한 방법입니다.
         connection.execute(text("DROP SCHEMA public CASCADE;"))
         print("✔️ public 스키마 및 모든 의존 객체 삭제 완료.")
-        
+
         connection.execute(text("CREATE SCHEMA public;"))
         print("✔️ public 스키마 재생성 완료.")
 
@@ -58,10 +58,10 @@ try:
         connection.execute(text(f"GRANT ALL ON SCHEMA public TO {DB_USER};"))
         connection.execute(text("GRANT ALL ON SCHEMA public TO public;"))
         print("✔️ 스키마 권한 복원 완료.")
-        
+
         # 스키마 변경사항을 완전히 적용하기 위해 커밋합니다.
         connection.commit()
-        
+
         print("\n✅ 데이터베이스가 완전히 초기화되었습니다.")
         print("다음 명령어를 실행하여 DB를 다시 만드세요:")
         print("  alembic upgrade head")
