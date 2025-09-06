@@ -1,13 +1,20 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, Dict, Any
 
+
 class SignUpRequest(BaseModel):
-    username: str = Field(..., description ="사용자 이름, 이메일/전화번호 형식도 가능")
-    password: str =Field(..., description="비밀번호, 최소 8자 이상, Cognito에 전달할 원문 비밀번호")
-    email: Optional[EmailStr] = Field(None, description = "이메일 주소")
-    phone_number: Optional[str] = Field(None, description="RDS users.phone_number → Cognito phone_number(E.164:+821012345678)")
-    address: Optional[str] = Field(None, description = "주소 -> Cognito custom:address")
-    
+    username: str = Field(..., description="사용자 이름, 이메일/전화번호 형식도 가능")
+    password: str = Field(
+        ..., description="비밀번호, 최소 8자 이상, Cognito에 전달할 원문 비밀번호"
+    )
+    email: Optional[EmailStr] = Field(None, description="이메일 주소")
+    phone_number: Optional[str] = Field(
+        None,
+        description="RDS users.phone_number → Cognito phone_number(E.164:+821012345678)",
+    )
+    address: Optional[str] = Field(None, description="주소 -> Cognito custom:address")
+
+
 class SignUpResponse(BaseModel):
     user_confirmed: bool
     user_sub: str
@@ -15,17 +22,23 @@ class SignUpResponse(BaseModel):
     delivery_medium: Optional[str] = None
     attribute_name: Optional[str] = None
 
+
 class ConfirmSignUpRequest(BaseModel):
     # 확인 코드는 이메일/휴대폰 등으로 전달되므로 username 타입 제한을 두지 않습니다.
-    username: str = Field(..., description="가입 시 사용한 username (이메일/전화번호/문자열)")
+    username: str = Field(
+        ..., description="가입 시 사용한 username (이메일/전화번호/문자열)"
+    )
     confirmation_code: str = Field(..., description="가입 확인 코드")
+
 
 class ConfirmSignUpResponse(BaseModel):
     status: str = Field(..., description='예: "CONFIRMED"')
 
+
 class SignInRequest(BaseModel):
     username: str = Field(..., description="사용자 이름, 이메일/전화번호 형식도 가능")
     password: str = Field(..., description="비밀번호, Cognito에 전달할 원문 비밀번호")
+
 
 class SignInResponse(BaseModel):
     access_token: Optional[str] = None
@@ -40,21 +53,26 @@ class SignInResponse(BaseModel):
     앱이 InitiateAuth를 호출했을 때 Cognito가 추가 단계가 필요하다고 판단하면 응답에  ChallengeName, ChallengeParameters, Session을 담아 보내며, 
     클라이언트는 이 정보로 다음 단계 입력을 받아 RespondToAuthChallenge로 답한다
     """
-    
+
     # 챌린지 대응을 위한 필드
     challenge_name: Optional[str] = None
     session: Optional[str] = None
     challenge_parameters: Optional[Dict[str, Any]] = None
 
+
 class ForgotPasswordRequest(BaseModel):
-    username: str = Field(..., description = "비밀번호 재설정 대상 username")
+    username: str = Field(..., description="비밀번호 재설정 대상 username")
+
 
 class ForgotPasswordResponse(BaseModel):
     destination: Optional[str] = None
     delivery_medium: Optional[str] = None
     attritubute_name: Optional[str] = None
 
+
 class ConfirmForgotPasswordRequest(BaseModel):
-    username: str = Field(..., description = "비밀번호 재설정 대상 username")
-    confirmation_code: str = Field(..., description = "사용자에게 발송된 확인 코드")
-    new_password: str = Field(..., min_length=8, description = "새로운 비밀번호 (최소 8자 이상)")
+    username: str = Field(..., description="비밀번호 재설정 대상 username")
+    confirmation_code: str = Field(..., description="사용자에게 발송된 확인 코드")
+    new_password: str = Field(
+        ..., min_length=8, description="새로운 비밀번호 (최소 8자 이상)"
+    )
