@@ -77,5 +77,5 @@ class OtherSettings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
-othersettings = OtherSettings()
+other_settings = OtherSettings()
 
