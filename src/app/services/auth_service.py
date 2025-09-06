@@ -26,7 +26,7 @@ from __future__ import annotations
 from botocore.exceptions import ClientError
 
 from app.schemas.auth_schemas import SignUpRequest, SignUpResponse
-from src.clients.cognito_wrapper import CognitoIdpWrapper
+from app.clients.cognito_wrapper import CognitoIdpWrapper
 from app.schemas.auth_schemas import(
     ForgotPasswordRequest,
     ForgotPasswordResponse,
