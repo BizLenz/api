@@ -26,18 +26,19 @@ from __future__ import annotations
 from botocore.exceptions import ClientError
 
 from app.schemas.auth_schemas import SignUpRequest, SignUpResponse
-from src.clients.cognito_wrapper import CognitoIdpWrapper
-from app.schemas.auth_schemas import(
+from app.clients.cognito_wrapper import CognitoIdpWrapper
+from app.schemas.auth_schemas import (
     ForgotPasswordRequest,
     ForgotPasswordResponse,
-    ConfrimForgotPasswordRequest,
+    ConfirmForgotPasswordRequest,
 )
+
 
 class AuthService:
     def __init__(self, cognito: CognitoIdpWrapper):
         self.cognito = cognito
-    
-    def sign_up(self, req:SignUpRequest) -> SignUpResponse:
+
+    def sign_up(self, req: SignUpRequest) -> SignUpResponse:
         """
         RDS users 스키마 필드 → Cognito 속성 매핑:
         - username: Cognito Username (필수)
@@ -65,6 +66,7 @@ class AuthService:
             )
         except ClientError as e:
             raise e
+
     def forgot_password(self, req: ForgotPasswordRequest) -> ForgotPasswordResponse:
         """
         비밀번호 재설정 코드 발송
@@ -79,8 +81,8 @@ class AuthService:
             )
         except ClientError as e:
             raise e
-            
-    def confirm_forgot_password(self, req: ConfrimForgotPasswordRequest) -> dict:
+
+    def confirm_forgot_password(self, req: ConfirmForgotPasswordRequest) -> dict:
         """
         코드 확인 및 새 비밀번호 설정
         성공 시 빈 dict 반환
@@ -95,8 +97,3 @@ class AuthService:
 
         except ClientError as e:
             raise e
-        
-    
-
-
-

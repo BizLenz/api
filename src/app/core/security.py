@@ -6,17 +6,21 @@
 from typing import Dict, Any, List
 from fastapi import Depends, HTTPException, Request, status
 
+
 def get_claims(request: Request) -> Dict[str, Any]:
     """
     미들웨어에서 request.state.claims로 주입한 JWT 클레임을 반환합니다.
     sub가 없거나 비어 있으면 인증 실패(401)로 처리합니다.
     """
     claims = getattr(request.state, "claims", None)
-    
+
     # claim이 Dictionary 형태인지 확인하고, "sub" 키가 없어서 None이 반환되거나, 키가 있지만 값이 None, False, ""(빈 문자열) 등 'falsy'한 값인 경우에 True가 됩니다.
     if not isinstance(claims, dict) or not claims.get("sub"):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
     return claims
+
 
 def parse_scopes_from_claims(claims: Dict[str, Any]) -> List[str]:
     """
@@ -37,6 +41,7 @@ def parse_scopes_from_claims(claims: Dict[str, Any]) -> List[str]:
         return [str(s) for s in raw_scp if s]
     return []
 
+
 def require_scope(required: str):
     """
     특정 스코프(required)가 있어야 라우트 접근을 허용하는 의존성 팩토리.
@@ -44,12 +49,18 @@ def require_scope(required: str):
       @router.get("/me")
       def me(claims: Dict = Depends(require_scope("bizlenz.read"))): ...
     """
+
     def checker(claims: Dict[str, Any] = Depends(get_claims)) -> Dict[str, Any]:
         scopes = parse_scopes_from_claims(claims)
         if required not in scopes:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Missing scope: {required}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Missing scope: {required}",
+            )
         return claims
+
     return checker
+
 
 def get_groups(claims: Dict[str, Any]) -> List[str]:
     """
