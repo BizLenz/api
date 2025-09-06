@@ -15,9 +15,11 @@ from typing import Iterable, Tuple, List, Dict, Any
 from fastapi import FastAPI, APIRouter, Request, Response
 from mangum import Mangum
 import app.routers as routers_package
-from app.core.config import OtherSettings
+from app.core.config import settings, OtherSettings
 
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.middleware.cognito_auth import CognitoAuthMiddleware
 
 
 def _iter_submodules(
@@ -104,6 +106,19 @@ app.add_middleware(
     # 필요 시 브라우저가 읽을 수 있는 헤더를 노출
     # expose_headers=["Content-Disposition"],
 )
+
+if settings.environment == "dev":
+    print("DEVELOPMENT MODE: Adding local CognitoAuthMiddleware for JWT validation.")
+    app.add_middleware(
+        CognitoAuthMiddleware,
+        user_pool_id=settings.cognito_user_pool_id,
+        region=settings.cognito_region,
+        audience="bizlenz",
+    )
+else:
+    print(
+        "PRODUCTION/LAMBDA MODE: Relying on API Gateway Authorizer for JWT validation."
+    )
 
 include_routers_recursive(app, routers_package, "app.routers")
 logger = logging.getLogger("bizlenz.auth")  # 인증/인가 영역 전용 로거
