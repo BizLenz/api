@@ -1,3 +1,5 @@
+python-jose
+starlette
 pydantic-settings
 sqlalchemy
 fastapi
