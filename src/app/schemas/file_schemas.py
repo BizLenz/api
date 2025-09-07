@@ -1,7 +1,196 @@
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional
-from datetime import datetime
 from app.core.config import other_settings
+from datetime import datetime
+import re
+
+
+# --- POST /files/upload endpoint (presigned URL generation) ---
+class PresignedUrlRequest(BaseModel):
+    user_id: str = Field(..., description="사용자 ID (Cognito sub - UUID string)")
+    file_name: str = Field(..., description="업로드할 파일 이름 (원본명)")
+    mime_type: str = Field(..., max_length=100, description="파일 MIME 타입")
+    file_size: int = Field(..., gt=0, description="파일 크기 (바이트 단위)")
+    description: Optional[str] = Field(None, max_length=500, description="파일 설명")
+
+    @field_validator("user_id")
+    @classmethod
+    def validate_user_id(cls, v):
+        uuid_pattern = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            re.IGNORECASE,
+        )
+        if not uuid_pattern.match(v):
+            raise ValueError("사용자 ID는 유효한 UUID 형식이어야 합니다.")
+        return v
+
+    @field_validator("file_name")
+    @classmethod
+    def validate_file_name(cls, v):
+        if not v or v.isspace():
+            raise ValueError("파일 이름은 필수입니다.")
+        forbidden_chars = re.compile(r'[\\/:*?"<>|]')
+        if forbidden_chars.search(v):
+            raise ValueError(
+                '파일 이름에 허용되지 않는 문자 (\\ / : * ? " < > |)가 포함되어 있습니다.'
+            )
+        if not v.lower().endswith(".pdf"):
+            raise ValueError("파일 이름은 반드시 .pdf 확장자로 끝나야 합니다.")
+        reserved_names = {
+            "CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            *(f"COM{i}" for i in range(1, 10)),
+            *(f"LPT{i}" for i in range(1, 10)),
+        }
+        name_part = v.rsplit(".", 1)[0].upper()
+        if name_part in reserved_names:
+            raise ValueError(
+                f"파일 이름에 허용되지 않는 예약어가 포함되어 있습니다: {name_part}"
+            )
+        if any(ord(c) < 32 or ord(c) == 127 for c in v):
+            raise ValueError(
+                "파일 이름에 ASCII 제어문자(0-31, 127)는 포함될 수 없습니다."
+            )
+        return v
+
+    @field_validator("mime_type")
+    @classmethod
+    def validate_mime_type(cls, v):
+        allowed_mime_types = ["application/pdf"]
+        if v.lower() not in allowed_mime_types:
+            raise ValueError(
+                f"허용되지 않는 MIME 타입입니다. 허용된 타입: {', '.join(allowed_mime_types)}"
+            )
+        return v.lower()
+
+    @field_validator("file_size")
+    @classmethod
+    def validate_file_size(cls, v):
+        max_size = other_settings.max_Size
+        if v > max_size:
+            max_size_mb = max_size / (1024 * 1024)
+            raise ValueError(f"파일 크기는 {max_size_mb}MB를 초과할 수 없습니다.")
+        if v <= 0:
+            raise ValueError("파일 크기는 0보다 커야 합니다.")
+        return v
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "user_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                "file_name": "My_Business_Plan.pdf",
+                "mime_type": "application/pdf",
+                "file_size": 2048000,
+                "description": "Annual business plan for Q3",
+            }
+        }
+        allow_population_by_field_name = True
+
+
+# --- POST /files/upload/metadata endpoint (metadata saving) ---
+class FileMetadataSaveRequest(BaseModel):
+    user_id: str = Field(..., description="사용자 ID (Cognito sub - UUID string)")
+    file_name: str = Field(..., max_length=255, description="원본 파일명")
+    mime_type: str = Field(..., max_length=100, description="파일 MIME 타입")
+    file_size: int = Field(..., gt=0, description="바이트 단위 파일 크기")
+    description: Optional[str] = Field(None, max_length=500, description="파일 설명")
+    s3_key: str = Field(..., description="S3 객체 키 (e.g., uploads/uuid_name.pdf)")
+    s3_file_url: str = Field(..., description="Full URL to the S3 object")
+
+    @field_validator("user_id")
+    @classmethod
+    def validate_user_id(cls, v):
+        uuid_pattern = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            re.IGNORECASE,
+        )
+        if not uuid_pattern.match(v):
+            raise ValueError("사용자 ID는 유효한 UUID 형식이어야 합니다.")
+        return v
+
+    @field_validator("file_name")
+    @classmethod
+    def validate_file_name(cls, v):
+        if not v or v.isspace():
+            raise ValueError("파일 이름은 필수입니다.")
+        forbidden_chars = re.compile(r'[\\/:*?"<>|]')
+        if forbidden_chars.search(v):
+            raise ValueError(
+                '파일 이름에 허용되지 않는 문자 (\\ / : * ? " < > |)가 포함되어 있습니다.'
+            )
+        if not v.lower().endswith(".pdf"):
+            raise ValueError("파일 이름은 반드시 .pdf 확장자로 끝나야 합니다.")
+        reserved_names = {
+            "CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            *(f"COM{i}" for i in range(1, 10)),
+            *(f"LPT{i}" for i in range(1, 10)),
+        }
+        name_part = v.rsplit(".", 1)[0].upper()
+        if name_part in reserved_names:
+            raise ValueError(
+                f"파일 이름에 허용되지 않는 예약어가 포함되어 있습니다: {name_part}"
+            )
+        if any(ord(c) < 32 or ord(c) == 127 for c in v):
+            raise ValueError(
+                "파일 이름에 ASCII 제어문자(0-31, 127)는 포함될 수 없습니다."
+            )
+        return v
+
+    @field_validator("mime_type")
+    @classmethod
+    def validate_mime_type(cls, v):
+        allowed_mime_types = ["application/pdf"]
+        if v.lower() not in allowed_mime_types:
+            raise ValueError(
+                f"허용되지 않는 MIME 타입입니다. 허용된 타입: {', '.join(allowed_mime_types)}"
+            )
+        return v.lower()
+
+    @field_validator("file_size")
+    @classmethod
+    def validate_file_size(cls, v):
+        max_size = other_settings.max_Size
+        if v > max_size:
+            raise ValueError(
+                f"파일 크기는 {max_size / (1024 * 1024)}MB를 초과할 수 없습니다."
+            )
+        if v <= 0:
+            raise ValueError("파일 크기는 0보다 커야 합니다.")
+            return v
+        return v
+
+    @field_validator("s3_key")
+    @classmethod
+    def validate_s3_key(cls, v):
+        if not v:
+            raise ValueError("S3 key는 필수입니다.")
+        return v
+
+    @field_validator("s3_file_url")
+    @classmethod
+    def validate_s3_file_url(cls, v):
+        if not v:
+            raise ValueError("S3 파일 URL은 필수입니다.")
+        return v
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "user_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+                "file_name": "My_Business_Plan.pdf",
+                "mime_type": "application/pdf",
+                "file_size": 2048000,
+                "description": "Annual business plan for Q3",
+                "s3_key": "uploads/a1b2c3d4-e5f6-7890-1234-567890abcdef_My_Business_Plan.pdf",
+                "s3_file_url": "https://your-bucket.s3.amazonaws.com/uploads/a1b2c3d4-e5f6-7890-1234-567890abcdef_My_Business_Plan.pdf",
+            }
+        }
+        allow_population_by_field_name = True
 
 
 class FileUploadRequest(BaseModel):
