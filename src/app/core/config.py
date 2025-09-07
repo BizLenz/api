@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal, ClassVar
 
 
@@ -11,10 +11,17 @@ class Settings(BaseSettings):
     Configures on runtime based on environment variables(dev, staging, prod)
     """
 
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
     # Basic Settings
     project_name: str = "BizLenz"
     version: str = "1.0.0"
-    environment: str = Field(default="development", env="ENVIRONMENT")
+    environment: str = Field(default="dev", env="ENVIRONMENT")
     debug: bool = Field(default=True, env="DEBUG")
 
     # Database Settings
@@ -69,12 +76,6 @@ class Settings(BaseSettings):
     cognito_user_pool_id: str | None = Field(default=None, env="COGNITO_USER_POOL_ID")
     cognito_client_id: str | None = Field(default=None, env="COGNITO_CLIENT_ID")
     cognito_client_secret: str | None = Field(default=None, env="COGNITO_CLIENT_SECRET")
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-        extra = "ignore"
 
 
 class OtherSettings(BaseSettings):
