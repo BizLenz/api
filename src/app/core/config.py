@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     presigned_url_expiration: int = Field(3600, env="PRESIGNED_URL_EXPIRATION")  # 1시간
     presigned_url_method: Literal["GET", "PUT", "POST"] = Field("GET", env="PRESIGNED_URL_METHOD")
 
-    # Cognito 설정
+    # Cognito 설정(Alembic 오류 해결용 str | None으로 변경)
     cognito_region: str = Field(default="ap-northeast-2", env="COGNITO_REGION")
     cognito_user_pool_id: str | None = Field(default=None, env="COGNITO_USER_POOL_ID")  # str | None으로 변경
     cognito_client_id: str | None = Field(default=None, env="COGNITO_CLIENT_ID")        # str | None으로 변경
