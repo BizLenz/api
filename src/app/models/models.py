@@ -1,4 +1,5 @@
 # src/app/models/models.py
+
 from sqlalchemy import (
     Column,
     Integer,
@@ -14,8 +15,9 @@ from sqlalchemy import (
     CheckConstraint,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
 from app.database import Base
 
 
@@ -25,15 +27,7 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(
-        Integer, primary_key=True, autoincrement=True, comment="서비스 내부 고유 ID"
-    )
-    cognito_sub = Column(
-        String(255),
-        unique=True,
-        nullable=False,
-        comment="Cognito 사용자 고유 식별자 (JWT sub)",
-    )
+    id = Column(String(255), primary_key=True, comment="Cognito Sub")
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
@@ -44,14 +38,16 @@ class User(Base):
     )
 
     __table_args__ = (
-        Index("idx_users_cognito_sub", "cognito_sub"),
         Index("idx_users_token_usage", "total_token_usage"),
         Index("idx_users_created_at", "created_at"),
         CheckConstraint("total_token_usage >= 0", name="ck_users_token_usage_positive"),
     )
 
     business_plans = relationship(
-        "BusinessPlan", back_populates="user", cascade="all, delete-orphan"
+        "BusinessPlan",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        primaryjoin="User.id == BusinessPlan.user_id",
     )
 
 
@@ -65,7 +61,7 @@ class BusinessPlan(Base):
         Integer, primary_key=True, autoincrement=True, comment="사업계획서 고유 ID"
     )
     user_id = Column(
-        Integer,
+        String(255),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         comment="업로더 사용자",
