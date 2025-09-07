@@ -93,13 +93,7 @@ def save_file_metadata(
 
         db_user = get_or_create_user(db, cognito_sub=cognito_sub)
 
-        if metadata.user_id != db_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Provided user_id in payload does not match authenticated user.",
-            )
-
-        db_business_plan = create_business_plan(db, metadata)
+        db_business_plan = create_business_plan(db, metadata, user_id=db_user.id)
 
         return {
             "message": "File metadata saved successfully",

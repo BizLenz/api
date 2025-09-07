@@ -3,12 +3,12 @@ from app.models.models import BusinessPlan
 from app.schemas.file_schemas import FileMetadataSaveRequest
 
 
-def create_business_plan(db: Session, business_plan_data: FileMetadataSaveRequest):
+def create_business_plan(db: Session, business_plan_data: FileMetadataSaveRequest, user_id: str):
     """
     Upload to S3 then save BusinessPlan metadata in the DB.
     """
     db_business_plan = BusinessPlan(
-        user_id=business_plan_data.user_id,
+        user_id=user_id,
         file_name=business_plan_data.file_name,
         file_path=business_plan_data.s3_key,
         file_size=business_plan_data.file_size,
