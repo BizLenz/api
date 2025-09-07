@@ -33,15 +33,14 @@ class User(Base):
         server_default=func.now(),
         comment="서비스 프로필 생성 일시",
     )
-    total_token_usage = Column(
-        Integer, server_default="0", nullable=False, comment="누적 토큰 사용량"
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="프로필 수정 일시",
     )
 
-    __table_args__ = (
-        Index("idx_users_token_usage", "total_token_usage"),
-        Index("idx_users_created_at", "created_at"),
-        CheckConstraint("total_token_usage >= 0", name="ck_users_token_usage_positive"),
-    )
+    __table_args__ = (Index("idx_users_created_at", "created_at"),)
 
     business_plans = relationship(
         "BusinessPlan",
