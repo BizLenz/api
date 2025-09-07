@@ -91,24 +91,12 @@ class PresignedUrlRequest(BaseModel):
 
 # --- POST /files/upload/metadata endpoint (metadata saving) ---
 class FileMetadataSaveRequest(BaseModel):
-    user_id: str = Field(..., description="사용자 ID (Cognito sub - UUID string)")
     file_name: str = Field(..., max_length=255, description="원본 파일명")
     mime_type: str = Field(..., max_length=100, description="파일 MIME 타입")
     file_size: int = Field(..., gt=0, description="바이트 단위 파일 크기")
     description: Optional[str] = Field(None, max_length=500, description="파일 설명")
     s3_key: str = Field(..., description="S3 객체 키 (e.g., uploads/uuid_name.pdf)")
     s3_file_url: str = Field(..., description="Full URL to the S3 object")
-
-    @field_validator("user_id")
-    @classmethod
-    def validate_user_id(cls, v):
-        uuid_pattern = re.compile(
-            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-            re.IGNORECASE,
-        )
-        if not uuid_pattern.match(v):
-            raise ValueError("사용자 ID는 유효한 UUID 형식이어야 합니다.")
-        return v
 
     @field_validator("file_name")
     @classmethod
