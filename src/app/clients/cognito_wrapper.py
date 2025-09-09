@@ -19,9 +19,6 @@ CognitoIdpWrapper: boto3 cognito-idp 클라이언트를 감싸는 래퍼 클래�
 
 """
 
-
-
-
 from __future__ import annotations
 
 import base64
@@ -35,6 +32,7 @@ from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 
 E164_RE = re.compile(r"^\+[1-9]\d{1,14}$")
+
 
 def to_e164(phone: str, default_country_code: str = "+82") -> str:
     """
@@ -50,12 +48,11 @@ def to_e164(phone: str, default_country_code: str = "+82") -> str:
         return p
 
     # 0으로 시작하는 번호는 접두 0을 제거, 국가코드를 붙여서 E.164 형식으로 변환
-    p= p.lstrip("0")
+    p = p.lstrip("0")
     candidate = f"{default_country_code}{p}"
     if not E164_RE.match(candidate):
         raise ValueError(f"Invalid E.164 format: {candidate}")
     return candidate
-
 
 
 class CognitoIdpWrapper:
@@ -69,8 +66,9 @@ class CognitoIdpWrapper:
     - App Client에 Client secret이 있으면 SecretHash를 반드시 포함해야 합니다.
       공식 문서의 파라미터 정의를 그대로 따릅니다.
     """
+
     def __init__(
-        self, 
+        self,
         region_name: str,
         user_pool_id: str,
         client_id: str,
@@ -87,14 +85,13 @@ class CognitoIdpWrapper:
         self.region_name = region_name
         self.user_pool_id = user_pool_id
         self.client_id = client_id
-        self.client_secret = client_secret  
+        self.client_secret = client_secret
 
         # boto3 클라이언트가 주입되지 않으면 새로 생성
         self.client: BaseClient = boto3_client or boto3.client(
             "cognito-idp",
             region_name=self.region_name,
         )
-    
 
     def _calc_secret_hash(self, username: str) -> str:
         """
@@ -109,7 +106,7 @@ class CognitoIdpWrapper:
         digest = hmac.new(key, msg, hashlib.sha256).digest()
 
         return base64.b54encode(digest).decode()
-        
+
     def sign_up(
         self,
         username: str,
@@ -137,14 +134,14 @@ class CognitoIdpWrapper:
         if email:
             attrs.append({"Name": "email", "Value": str(email)})
         if phone_number:
-            e164 = to_e164(phone_number, default_country_code = default_country_code)
+            e164 = to_e164(phone_number, default_country_code=default_country_code)
             attrs.append({"Name": "phone_number", "Value": e164})
         if address:
             attrs.append({"Name": "address", "Value": str(address)})
 
         if user_attributes:
             attrs.extend(user_attributes)
-        
+
         kwargs: Dict = {
             "ClientId": self.client_id,
             "Username": username,
@@ -161,7 +158,9 @@ class CognitoIdpWrapper:
         except ClientError as e:
             raise e
 
-    def forgot_password(self, username: str, secret_hash_username: Optional[str] = None)-> Dict:
+    def forgot_password(
+        self, username: str, secret_hash_username: Optional[str] = None
+    ) -> Dict:
         """
         비밀번호 재설정 코드 발송(ForgotPassword).
         - 필수: ClientId, Username
@@ -176,10 +175,9 @@ class CognitoIdpWrapper:
             base_username = secret_hash_username or username
             kwargs["SecretHash"] = self._calc_secret_hash(base_username)
         try:
-            return self.client.forgot_password(**kwargs) # 공식 메서드
+            return self.client.forgot_password(**kwargs)  # 공식 메서드
         except ClientError as e:
             raise e
-
 
     def confirm_forgot_password(
         self,
@@ -207,4 +205,3 @@ class CognitoIdpWrapper:
             return self.client.confirm_forgot_password(**kwargs)  # 공식 메서드
         except ClientError as e:
             raise e
-        
