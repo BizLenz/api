@@ -67,7 +67,7 @@ class EvaluationRequest(BaseModel):
         }
 
 class SectionResult(BaseModel):
-    """섹션별 결과 (archive.py 출력 기반)"""
+    """섹션별 결과"""
     score: Optional[Decimal] = Field(None, description="섹션 점수", ge=0, le=999.99)
     max_score: int = Field(..., description="섹션 최대 점수")
     analysis: Optional[str] = Field(None, description="Gemini 분석 내용", max_length=10000)
@@ -110,7 +110,7 @@ class FileInfo(BaseModel):
 
 class EvaluationResponse(BaseModel):
     """
-    사업계획서 평가 응답 (archive.py 출력 구조 기반)
+    사업계획서 평가 응답 (analysis_results.details JSONB에 통합 저장)
     DB 연동: 이 전체 객체가 analysis_results.details에 JSON으로 저장됨
     """
     success: bool = Field(True, description="평가 성공 여부")
@@ -135,7 +135,7 @@ class EvaluationResponse(BaseModel):
         description="카테고리별 점수 (문제인식, 해결방안, 성장전략, 팀구성)"
     )
     
-    # 종합 분석 (archive.py 출력에서 추출되는 내용)
+    # 종합 분석
     overall_strengths: Optional[List[str]] = Field(
         None,
         description="전체 사업계획서의 주요 강점",
@@ -152,7 +152,7 @@ class EvaluationResponse(BaseModel):
         max_items=15
     )
     
-    # Gemini 원본 응답 (archive.py에서 생성되는 전체 텍스트)
+    # Gemini 원본 응답
     gemini_full_analysis: Optional[str] = Field(
         None,
         description="Gemini 최종 분석 보고서 전문",
@@ -180,27 +180,6 @@ class EvaluationResponse(BaseModel):
             if self.total_score.as_tuple().exponent < -2:
                 raise ValueError('총점은 소수점 2자리까지만 허용됩니다.')
         return self
-
-# =====================================================
-# 텍스트 파싱 관련 모델 (archive.py 출력 파싱용)
-# =====================================================
-
-class ScoreTableRow(BaseModel):
-    """점수 표에서 추출된 행 데이터"""
-    category: str = Field(..., description="대분류명")
-    section: Optional[str] = Field(None, description="소분류명 (있는 경우)")
-    max_score: int = Field(..., description="만점")
-    score: int = Field(..., description="획득 점수")
-    minimum_required: Optional[int] = Field(None, description="최소 득점 기준")
-    passed: Optional[bool] = Field(None, description="최소 득점 충족 여부")
-
-class TextAnalysisResult(BaseModel):
-    """archive.py 텍스트 분석 결과 파싱"""
-    score_table: List[ScoreTableRow] = Field(default_factory=list, description="점수 표 데이터")
-    strengths: List[str] = Field(default_factory=list, description="강점 목록")
-    weaknesses: List[str] = Field(default_factory=list, description="약점 목록")
-    improvements: List[str] = Field(default_factory=list, description="개선 제안")
-    overall_assessment: Optional[str] = Field(None, description="종합 의견")
 
 # =====================================================
 # 헬퍼 함수들 (예비창업패키지 기준)
@@ -253,63 +232,6 @@ def get_failed_categories(category_scores: Dict[str, Decimal]) -> List[str]:
     """최소 기준 미달 카테고리 목록"""
     minimum_checks = check_minimum_requirements(category_scores)
     return [category for category, passed in minimum_checks.items() if not passed]
-
-# =====================================================
-# 텍스트 파싱 헬퍼 함수들 (archive.py 출력 파싱용)
-# =====================================================
-
-def parse_gemini_analysis(analysis_text: str) -> TextAnalysisResult:
-    """Gemini 분석 텍스트를 구조화된 데이터로 파싱"""
-    lines = analysis_text.split('\n')
-    result = TextAnalysisResult()
-    
-    current_section = None
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-            
-        # 점수 표 파싱 (간단한 예시)
-        if '|' in line and ('점' in line or '충족' in line):
-            # 실제 구현시 정규식이나 더 정교한 파싱 필요
-            pass
-            
-        # 강점 섹션
-        if '강점' in line and 'Strengths' in line:
-            current_section = 'strengths'
-        # 약점 섹션  
-        elif '약점' in line or '개선' in line:
-            current_section = 'weaknesses'
-        # 개선 제안 섹션
-        elif '개선 제안' in line:
-            current_section = 'improvements'
-        # 불릿 포인트 추출
-        elif line.startswith('*') or line.startswith('-'):
-            content = line[1:].strip()
-            if current_section == 'strengths':
-                result.strengths.append(content)
-            elif current_section == 'weaknesses':
-                result.weaknesses.append(content)
-            elif current_section == 'improvements':
-                result.improvements.append(content)
-    
-    return result
-
-def extract_scores_from_analysis(analysis_text: str) -> Dict[str, int]:
-    """분석 텍스트에서 점수 추출"""
-    import re
-    
-    scores = {}
-    # 표 형태의 점수 추출 (정규식 패턴)
-    # 예: | 1.1. 창업아이템의 개발동기 | 15 | 13 |
-    pattern = r'\|\s*([^|]+)\s*\|\s*\d+\s*\|\s*(\d+)\s*\|'
-    
-    for match in re.finditer(pattern, analysis_text):
-        section_name = match.group(1).strip()
-        score = int(match.group(2))
-        scores[section_name] = score
-    
-    return scores
 
 # =====================================================
 # DB 저장용 헬퍼 함수들 (analysis_results.details JSONB 연동)
