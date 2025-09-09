@@ -1,4 +1,3 @@
-# src/app/models/models.py
 from sqlalchemy import (
     Column,
     Integer,
@@ -24,16 +23,12 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
     
-    id = Column(Integer, primary_key=True, autoincrement=True, comment="서비스 내부 고유 ID")
-    cognito_sub = Column(String(255), unique=True, nullable=False, comment="Cognito 사용자 고유 식별자 (JWT sub)")
+    id = Column(String(255), primary_key=True, comment="Cognito Sub (서비스 내부 고유 ID)")
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), comment="서비스 프로필 생성 일시")
-    total_token_usage = Column(Integer, server_default='0', nullable=False, comment="누적 토큰 사용량")
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now(), comment="프로필 수정 일시")
     
     __table_args__ = (
-        Index('idx_users_cognito_sub', 'cognito_sub'),
-        Index('idx_users_token_usage', 'total_token_usage'),
         Index('idx_users_created_at', 'created_at'),
-        CheckConstraint('total_token_usage >= 0', name='ck_users_token_usage_positive'),
     )
     
     business_plans = relationship(
@@ -49,7 +44,7 @@ class BusinessPlan(Base):
     __tablename__ = "business_plans"
     
     id = Column(Integer, primary_key=True, autoincrement=True, comment="사업계획서 고유 ID")
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, comment="업로더 사용자")
+    user_id = Column(String(255), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, comment="업로더 사용자")
     file_name = Column(String(255), nullable=False, comment="원본 파일명")
     file_path = Column(String(500), nullable=False, comment="스토리지 내 저장 경로")
     file_size = Column(BigInteger, comment="바이트 단위 파일 크기")
@@ -67,7 +62,7 @@ class BusinessPlan(Base):
     latest_job_id = Column(
         Integer,
         ForeignKey("analysis_jobs.id", ondelete="SET NULL"),
-        comment="가장 최근 분석 작업 ID"
+        comment="가장 최근 분석 작업 ID (상태 조회용)"
     )
     
     __table_args__ = (
