@@ -1,5 +1,3 @@
-# python swagger_to_excel.py
-import json
 import pandas as pd
 import requests
 from datetime import datetime
