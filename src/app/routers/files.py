@@ -13,7 +13,7 @@ from app.database import get_db
 from app.core.security import require_scope, get_claims
 from app.core.exceptions import to_http_exception
 from app.crud.user import get_or_create_user
-from app.models import BusinessPlan, User
+from app.models import BusinessPlan
 import boto3
 
 from app.schemas.file_schemas import PresignedUrlRequest, FileMetadataSaveRequest
