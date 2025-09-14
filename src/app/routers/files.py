@@ -46,7 +46,7 @@ def get_user_by_cognito_sub(db: Session, cognito_sub: str) -> str:
 
 
 # ============================================================================
-# 파일 업로드 관련 API (ERD + API 명세서 기준)
+# 파일 업로드 관련 API 
 # ============================================================================
 
 @files.post("/upload", response_model=dict)
@@ -55,7 +55,7 @@ def upload(
     claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
 ):
     """
-    PDF 파일 presigned URL 발급 엔드포인트 (API 명세서 기준)
+    PDF 파일 presigned URL 발급 엔드포인트 
     """
     try:
         cognito_sub = claims.get("sub")
@@ -80,7 +80,6 @@ def upload(
             ExpiresIn=300,  # 5 min
         )
 
-        # API 명세서 기준 Response
         return {
             "user_id": cognito_sub,  # ERD: users.id = cognito_sub 값
             "file_name": file_details.file_name,
@@ -128,7 +127,6 @@ def save_file_metadata(
         # business_plans 테이블에 저장
         db_business_plan = create_business_plan(db, metadata, user_id=user_id)
 
-        # API 명세서 기준 Response
         return {
             "success": True,
             "message": "File metadata saved successfully",
@@ -148,7 +146,7 @@ def save_file_metadata(
 
 
 # ============================================================================
-# 파일 검색 API (API 명세서 기준)
+# 파일 검색 API 
 # ============================================================================
 
 @files.get("/search", response_model=dict)
@@ -160,7 +158,7 @@ def search_my_files(
     claims: Dict[str, Any] = Depends(get_claims),
 ):
     """
-    내 파일 검색 (RDS 기반, API 명세서 기준)
+    내 파일 검색 (RDS 기반)
     """
     cognito_sub = claims.get("sub")
     if not cognito_sub:
@@ -185,7 +183,6 @@ def search_my_files(
 
     files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
 
-    # API 명세서 기준 Response
     return {
         "success": True,
         "results": [
@@ -206,7 +203,7 @@ def search_my_files(
 
 
 # ============================================================================
-# 파일 삭제 API (ERD + API 명세서 기준)
+# 파일 삭제 API 
 # ============================================================================
 
 @files.delete("/{file_id}")
@@ -249,7 +246,6 @@ def delete_file(
         db.delete(file)
         db.commit()
 
-        # API 명세서 기준 Response
         return {
             "success": True,
             "message": "File deleted successfully",
@@ -276,7 +272,7 @@ def delete_file(
 
 
 # ============================================================================
-# 파일 다운로드 API (API 명세서 기준)
+# 파일 다운로드 API 
 # ============================================================================
 
 @files.get("/{file_id}/download", response_model=dict)
@@ -286,7 +282,7 @@ def download_file(
     claims: Dict[str, Any] = Depends(get_claims),
 ):
     """
-    사업계획서 다운로드 (API 명세서 기준)
+    사업계획서 다운로드 
     """
     cognito_sub = claims.get("sub")
     if not cognito_sub:
@@ -326,7 +322,6 @@ def download_file(
                 ExpiresIn=300  # 5분
             )
 
-            # API 명세서 기준 Response
             return {
                 "success": True,
                 "file_id": file_id,
@@ -350,7 +345,7 @@ def download_file(
 
 
 # ============================================================================
-# 관리자용 API (MVP 이후 구현 예정, 현재는 유지만)
+# 관리자용 API (MVP 이후 구현 예정)
 # ============================================================================
 
 @files.get("/admin/all", response_model=dict)
