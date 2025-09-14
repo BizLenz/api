@@ -4,7 +4,7 @@
 from fastapi import APIRouter, HTTPException, Query, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError, BotoCoreError
 from uuid import uuid4
 from app.crud.file_metadata import create_business_plan
