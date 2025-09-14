@@ -1,5 +1,5 @@
 # api/src/app/routers/files.py
-#uvicorn app.main:app --reload
+# uvicorn app.main:app --reload
 
 from fastapi import APIRouter, HTTPException, Query, Depends, status
 from sqlalchemy.orm import Session
@@ -32,13 +32,21 @@ s3_client = boto3.client(
 
 def is_admin(claims: Dict[str, Any]) -> bool:
     """관리자 권한 확인"""
-    # Cognito groups에서 admin 그룹 확인
     groups = claims.get("cognito:groups", [])
     return "admin" in groups or "administrators" in groups
 
 
+def get_user_by_cognito_sub(db: Session, cognito_sub: str) -> str:
+    """
+    ERD 기준: users.id가 cognito_sub 값을 직접 저장
+    cognito_sub를 그대로 user_id로 사용
+    """
+    get_or_create_user(db, cognito_sub=cognito_sub)
+    return cognito_sub  # users.id = cognito_sub 값
+
+
 # ============================================================================
-# 파일 업로드 관련 API (기존 유지)
+# 파일 업로드 관련 API (ERD + API 명세서 기준)
 # ============================================================================
 
 @files.post("/upload", response_model=dict)
@@ -47,9 +55,16 @@ def upload(
     claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
 ):
     """
-    PDF 파일 presigned URL 발급 엔드포인트
+    PDF 파일 presigned URL 발급 엔드포인트 (API 명세서 기준)
     """
     try:
+        cognito_sub = claims.get("sub")
+        if not cognito_sub:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User ID (sub) not found in token claims.",
+            )
+
         s3_object_key_basename = f"{uuid4()}_{file_details.file_name}"
         s3_full_key = f"{settings.s3_upload_folder}/{s3_object_key_basename}"
 
@@ -65,15 +80,20 @@ def upload(
             ExpiresIn=300,  # 5 min
         )
 
+        # API 명세서 기준 Response
         return {
-            "upload_url": url,
-            "file_url": f"https://{settings.s3_bucket_name}.s3.amazonaws.com/{s3_full_key}",
-            "key": s3_full_key,
+            "user_id": cognito_sub,  # ERD: users.id = cognito_sub 값
+            "file_name": file_details.file_name,
+            "mime_type": file_details.mime_type,
+            "file_size": file_details.file_size,
+            "success": True,
+            "message": "Presigned URL generated successfully",
+            "presigned_url": url,
         }
     except (ClientError, BotoCoreError, Exception) as err:
         raise to_http_exception(err)
 
-# RDS 파일 메타데이터 저장 엔드포인트
+
 @files.post("/upload/metadata", response_model=dict)
 def save_file_metadata(
     metadata: FileMetadataSaveRequest,
@@ -81,7 +101,7 @@ def save_file_metadata(
     claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
 ):
     """
-    클라이언트가 S3 업로드 후 호출하는 메타데이터 저장 API
+    클라이언트가 S3 업로드 후 호출하는 메타데이터 저장 API (ERD 기준)
     """
     try:
         if not metadata.s3_key:
@@ -102,12 +122,21 @@ def save_file_metadata(
                 detail="User ID (sub) not found in token claims.",
             )
 
-        db_user = get_or_create_user(db, cognito_sub=cognito_sub)
-        db_business_plan = create_business_plan(db, metadata, user_id=db_user.id)
+        # ERD 기준: users.id = cognito_sub 값
+        user_id = get_user_by_cognito_sub(db, cognito_sub)
+        
+        # business_plans 테이블에 저장
+        db_business_plan = create_business_plan(db, metadata, user_id=user_id)
 
+        # API 명세서 기준 Response
         return {
+            "success": True,
             "message": "File metadata saved successfully",
             "file_id": db_business_plan.id,
+            "user_id": user_id,  # cognito_sub 값
+            "status": "pending",
+            "created_at": db_business_plan.created_at.isoformat() if db_business_plan.created_at else None,
+            "updated_at": db_business_plan.updated_at.isoformat() if db_business_plan.updated_at else None,
         }
     except HTTPException as e:
         raise e
@@ -119,163 +148,65 @@ def save_file_metadata(
 
 
 # ============================================================================
-# 사용자별 파일 조회/관리 API (새로 추가 - RDS 기반)
+# 파일 검색 API (API 명세서 기준)
 # ============================================================================
 
-@files.get("", response_model=List[dict])
-def get_my_files(
-    db: Session = Depends(get_db),
-    claims: Dict[str, Any] = Depends(get_claims),
-    limit: int = Query(50, ge=1, le=100, description="조회할 파일 수"),
-    offset: int = Query(0, ge=0, description="시작 위치"),
-):
-    """
-    내 파일 목록 조회 (RDS 기반)
-    """
-    user_id = claims.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User ID not found in token claims"
-        )
-
-    try:
-        files = (
-            db.query(BusinessPlan)
-            .filter(BusinessPlan.user_id == user_id)
-            .order_by(desc(BusinessPlan.created_at))
-            .limit(limit)
-            .offset(offset)
-            .all()
-        )
-
-        return [
-            {
-                "id": file.id,
-                "file_name": file.file_name,
-                "status": file.status,
-                "file_size": file.file_size,
-                "mime_type": file.mime_type,
-                "created_at": file.created_at.isoformat() if file.created_at else None,
-                "updated_at": file.updated_at.isoformat() if file.updated_at else None,
-                "latest_job_id": file.latest_job_id,
-            }
-            for file in files
-        ]
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error retrieving files: {str(e)}"
-        )
-
-
-@files.get("/search", response_model=List[dict])
+@files.get("/search", response_model=dict)
 def search_my_files(
     keywords: Optional[str] = Query(None, description="파일명 검색 키워드"),
     status_filter: Optional[str] = Query(None, description="상태 필터 (pending, processing, completed, failed)"),
+    limit: int = Query(50, ge=1, le=100, description="조회할 파일 수"),
     db: Session = Depends(get_db),
     claims: Dict[str, Any] = Depends(get_claims),
-    limit: int = Query(50, ge=1, le=100, description="조회할 파일 수"),
 ):
     """
-    내 파일 검색 (RDS 기반)
+    내 파일 검색 (RDS 기반, API 명세서 기준)
     """
-    user_id = claims.get("sub")
-    if not user_id:
+    cognito_sub = claims.get("sub")
+    if not cognito_sub:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User ID not found in token claims"
         )
 
-    try:
-        query = db.query(BusinessPlan).filter(BusinessPlan.user_id == user_id)
+    # ERD 기준: business_plans.user_id = cognito_sub
+    query = db.query(BusinessPlan).filter(BusinessPlan.user_id == cognito_sub)
 
-        if keywords:
+    if keywords:
             query = query.filter(BusinessPlan.file_name.ilike(f"%{keywords}%"))
         
-        if status_filter:
-            if status_filter not in ['pending', 'processing', 'completed', 'failed']:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid status filter"
-                )
-            query = query.filter(BusinessPlan.status == status_filter)
+    if status_filter:
+        if status_filter not in ['pending', 'processing', 'completed', 'failed']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid status filter"
+            )
+        query = query.filter(BusinessPlan.status == status_filter)
 
-        files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
+    files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
 
-        return [
+    # API 명세서 기준 Response
+    return {
+        "success": True,
+        "results": [
             {
                 "id": file.id,
                 "file_name": file.file_name,
-                "status": file.status,
-                "file_size": file.file_size,
+                "file_path": file.file_path,
                 "mime_type": file.mime_type,
+                "file_size": file.file_size,
+                "status": file.status,
                 "created_at": file.created_at.isoformat() if file.created_at else None,
                 "updated_at": file.updated_at.isoformat() if file.updated_at else None,
                 "latest_job_id": file.latest_job_id,
             }
             for file in files
         ]
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error searching files: {str(e)}"
-        )
-
-
-@files.get("/{file_id}", response_model=dict)
-def get_file_detail(
-    file_id: int,
-    db: Session = Depends(get_db),
-    claims: Dict[str, Any] = Depends(get_claims),
-):
-    """
-    특정 파일 상세 정보 조회
-    """
-    user_id = claims.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User ID not found in token claims"
-        )
-
-    try:
-        file = (
-            db.query(BusinessPlan)
-            .filter(
-                BusinessPlan.id == file_id,
-                BusinessPlan.user_id == user_id
-            )
-            .first()
-        )
-
-        if not file:
-            raise HTTPException(
-                status_code=404, 
-                detail="File not found or access denied"
-            )
-
-        return {
-            "id": file.id,
-            "file_name": file.file_name,
-            "file_path": file.file_path,
-            "status": file.status,
-            "file_size": file.file_size,
-            "mime_type": file.mime_type,
-            "created_at": file.created_at.isoformat() if file.created_at else None,
-            "updated_at": file.updated_at.isoformat() if file.updated_at else None,
-            "latest_job_id": file.latest_job_id,
-        }
-    except HTTPException as e:
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error retrieving file detail: {str(e)}"
-        )
+    }
 
 
 # ============================================================================
-# 파일 삭제 API (S3 + DB 동시 삭제)
+# 파일 삭제 API (ERD + API 명세서 기준)
 # ============================================================================
 
 @files.delete("/{file_id}")
@@ -285,62 +216,144 @@ def delete_file(
     claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
 ):
     """
-    파일 삭제 (본인 파일 또는 관리자만 가능, S3 + DB 동시 삭제)
+    파일 삭제 (DB ID 기반, S3 + DB 동시 삭제)
     """
-    user_id = claims.get("sub")
-    if not user_id:
+    cognito_sub = claims.get("sub")
+    if not cognito_sub:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User ID not found in token claims"
         )
 
     try:
-        # 파일 조회
+        # 파일 조회 (ERD 기준: user_id = cognito_sub)
         file = db.query(BusinessPlan).filter(BusinessPlan.id == file_id).first()
         
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 
         # 권한 확인: 본인 파일이거나 관리자여야 함
-        if file.user_id != user_id and not is_admin(claims):
+        if file.user_id != cognito_sub and not is_admin(claims):
             raise HTTPException(
                 status_code=403, 
                 detail="Permission denied: You can only delete your own files"
             )
 
-        # S3에서 파일 삭제
+        # S3에서 파일 삭제 먼저 수행
         if file.file_path:
-            try:
-                # file_path에서 S3 key 추출 (S3 URL에서 key 부분만)
-                s3_key = file.file_path.split(f"{settings.s3_bucket_name}.s3.amazonaws.com/")[-1]
-                s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=s3_key)
-            except Exception as s3_error:
-                print(f"S3 deletion failed: {s3_error}")
-                # S3 삭제 실패해도 DB 삭제는 진행 (orphan 방지)
+            s3_key = file.file_path.split(f"{settings.s3_bucket_name}.s3.amazonaws.com/")[-1]
+            s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=s3_key)
 
-        # DB에서 파일 레코드 삭제 (CASCADE로 관련 analysis_jobs, analysis_results도 삭제됨)
+        # S3 삭제 성공 후에만 DB에서 파일 레코드 삭제
+        # CASCADE로 관련 analysis_jobs, analysis_results도 삭제됨
         db.delete(file)
         db.commit()
 
+        # API 명세서 기준 Response
         return {
+            "success": True,
             "message": "File deleted successfully",
             "deleted_file_id": file_id
         }
 
+    except (ClientError, BotoCoreError) as s3_error:
+        db.rollback()
+        print(f"S3 deletion failed: {s3_error}")
+        raise HTTPException(
+            status_code=500, 
+            detail="File deletion failed: S3 error occurred"
+        )
     except HTTPException as e:
+        db.rollback()
         raise e
     except Exception as e:
         db.rollback()
+        print(f"Database deletion failed: {str(e)}")
         raise HTTPException(
-            status_code=500, detail=f"Error deleting file: {str(e)}"
+            status_code=500, 
+            detail=f"Error deleting file: {str(e)}"
         )
 
 
 # ============================================================================
-# 관리자용 API (전체 파일 관리)
+# 파일 다운로드 API (API 명세서 기준)
 # ============================================================================
 
-@files.get("/admin/all", response_model=List[dict])
+@files.get("/{file_id}/download", response_model=dict)
+def download_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_claims),
+):
+    """
+    사업계획서 다운로드 (API 명세서 기준)
+    """
+    cognito_sub = claims.get("sub")
+    if not cognito_sub:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User ID not found in token claims"
+        )
+
+    try:
+        # ERD 기준: business_plans.user_id = cognito_sub
+        file = db.query(BusinessPlan).filter(
+            BusinessPlan.id == file_id,
+            BusinessPlan.user_id == cognito_sub
+        ).first()
+
+        if not file:
+            raise HTTPException(
+                status_code=404,
+                detail="File not found or access denied"
+            )
+
+        # S3에서 다운로드용 presigned URL 생성
+        if not file.file_path:
+            raise HTTPException(
+                status_code=404,
+                detail="File path not found"
+            )
+
+        try:
+            # file_path에서 S3 key 추출
+            s3_key = file.file_path.split(f"{settings.s3_bucket_name}.s3.amazonaws.com/")[-1]
+            
+            # 다운로드용 presigned URL 생성 (GET 방식)
+            presigned_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': settings.s3_bucket_name, 'Key': s3_key},
+                ExpiresIn=300  # 5분
+            )
+
+            # API 명세서 기준 Response
+            return {
+                "success": True,
+                "file_id": file_id,
+                "file_name": file.file_name,
+                "presigned_url": presigned_url
+            }
+
+        except Exception as s3_error:
+            print(f"S3 presigned URL generation failed: {s3_error}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate download URL"
+            )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error preparing file download: {str(e)}"
+        )
+
+
+# ============================================================================
+# 관리자용 API (MVP 이후 구현 예정, 현재는 유지만)
+# ============================================================================
+
+@files.get("/admin/all", response_model=dict)
 def get_all_files_admin(
     db: Session = Depends(get_db),
     claims: Dict[str, Any] = Depends(get_claims),
@@ -348,7 +361,7 @@ def get_all_files_admin(
     offset: int = Query(0, ge=0, description="시작 위치"),
 ):
     """
-    전체 파일 조회 (관리자만)
+    전체 파일 조회 (관리자만) - MVP 이후 구현 예정
     """
     if not is_admin(claims):
         raise HTTPException(
@@ -358,34 +371,36 @@ def get_all_files_admin(
 
     try:
         files = (
-            db.query(BusinessPlan, User.id.label("user_cognito_sub"))
-            .join(User, BusinessPlan.user_id == User.id)
+            db.query(BusinessPlan)
             .order_by(desc(BusinessPlan.created_at))
             .limit(limit)
             .offset(offset)
             .all()
         )
 
-        return [
-            {
-                "id": file.BusinessPlan.id,
-                "file_name": file.BusinessPlan.file_name,
-                "status": file.BusinessPlan.status,
-                "file_size": file.BusinessPlan.file_size,
-                "mime_type": file.BusinessPlan.mime_type,
-                "created_at": file.BusinessPlan.created_at.isoformat() if file.BusinessPlan.created_at else None,
-                "user_id": file.user_cognito_sub,
-                "latest_job_id": file.BusinessPlan.latest_job_id,
-            }
-            for file in files
-        ]
+        return {
+            "success": True,
+            "results": [
+                {
+                    "id": file.id,
+                    "file_name": file.file_name,
+                    "status": file.status,
+                    "file_size": file.file_size,
+                    "mime_type": file.mime_type,
+                    "created_at": file.created_at.isoformat() if file.created_at else None,
+                    "user_id": file.user_id,  # cognito_sub 값
+                    "latest_job_id": file.latest_job_id,
+                }
+                for file in files
+            ]
+        }
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error retrieving all files: {str(e)}"
         )
 
 
-@files.get("/admin/search", response_model=List[dict])
+@files.get("/admin/search", response_model=dict)
 def search_all_files_admin(
     keywords: Optional[str] = Query(None, description="파일명 검색 키워드"),
     user_id: Optional[str] = Query(None, description="특정 사용자 ID로 필터"),
@@ -395,7 +410,7 @@ def search_all_files_admin(
     limit: int = Query(100, ge=1, le=500, description="조회할 파일 수"),
 ):
     """
-    전체 파일 검색 (관리자만)
+    전체 파일 검색 (관리자만) - MVP 이후 구현 예정
     """
     if not is_admin(claims):
         raise HTTPException(
@@ -404,9 +419,7 @@ def search_all_files_admin(
         )
 
     try:
-        query = db.query(BusinessPlan, User.id.label("user_cognito_sub")).join(
-            User, BusinessPlan.user_id == User.id
-        )
+        query = db.query(BusinessPlan)
 
         if keywords:
             query = query.filter(BusinessPlan.file_name.ilike(f"%{keywords}%"))
@@ -424,72 +437,25 @@ def search_all_files_admin(
 
         files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
 
-        return [
-            {
-                "id": file.BusinessPlan.id,
-                "file_name": file.BusinessPlan.file_name,
-                "status": file.BusinessPlan.status,
-                "file_size": file.BusinessPlan.file_size,
-                "mime_type": file.BusinessPlan.mime_type,
-                "created_at": file.BusinessPlan.created_at.isoformat() if file.BusinessPlan.created_at else None,
-                "user_id": file.user_cognito_sub,
-                "latest_job_id": file.BusinessPlan.latest_job_id,
-            }
-            for file in files
-        ]
+        return {
+            "success": True,
+            "results": [
+                {
+                    "id": file.id,
+                    "file_name": file.file_name,
+                    "status": file.status,
+                    "file_size": file.file_size,
+                    "mime_type": file.mime_type,
+                    "created_at": file.created_at.isoformat() if file.created_at else None,
+                    "user_id": file.user_id,  # cognito_sub 값
+                    "latest_job_id": file.latest_job_id,
+                }
+                for file in files
+            ]
+        }
     except HTTPException as e:
         raise e
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Error searching files: {str(e)}"
         )
-
-
-# ============================================================================
-# 레거시 S3 직접 접근 API (하위 호환성, 사용 비권장)
-# ============================================================================
-
-@files.get("/legacy/s3-search")
-async def legacy_search_s3_files(
-    keywords: Optional[str] = Query(None, description="파일 이름 검색 키워드"),
-    extension: Optional[str] = Query(None, description="파일 확장자 (예: pdf)"),
-    claims: Dict[str, Any] = Depends(get_claims),
-):
-    """
-    레거시: S3 직접 검색 (사용 비권장, 하위 호환성 목적)
-    """
-    try:
-        response = s3_client.list_objects_v2(Bucket=settings.s3_bucket_name)
-        if "Contents" not in response:
-            return []
-
-        res_files = response["Contents"]
-        result: List[Dict[str, Any]] = []
-        normalized_extension = (
-            f".{extension.lower().lstrip('.')}" if extension else None
-        )
-
-        for obj in res_files:
-            file_name = obj["Key"]
-            if keywords and keywords.lower() not in file_name.lower():
-                continue
-            if normalized_extension and not file_name.lower().endswith(
-                normalized_extension
-            ):
-                continue
-
-            display_file_name = file_name
-            parts = file_name.split("_", 1)
-            if len(parts) > 1 and parts[0].isalnum() and "-" in parts[0]:
-                display_file_name = parts[1]
-
-            result.append(
-                {
-                    "file_name": display_file_name,
-                    "last_modified": obj["LastModified"].isoformat(),
-                    "size": obj["Size"],
-                }
-            )
-        return result
-    except (ClientError, BotoCoreError, Exception) as e:
-        raise to_http_exception(e)
