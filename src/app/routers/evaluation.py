@@ -6,7 +6,8 @@ import pathlib
 import tempfile
 import boto3
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from database import get_db
 from app.schemas.evaluation import AnalysisCreateIn, AnalysisResponse, AnalysisResultCreateIn, AnalysisResultOut
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
@@ -24,13 +25,6 @@ from google.genai import types
 router = APIRouter(prefix="/api/v1/analysis", tags=["analysis"])
 
 _s3 = boto3.client("s3", region_name=settings.aws_region)
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 async def _analyze_section(client: genai.Client, uploaded_doc, criteria: dict) -> dict:
