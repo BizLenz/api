@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     cognito_client_id: str | None = Field(default=None, env="COGNITO_CLIENT_ID")
     cognito_client_secret: str | None = Field(default=None, env="COGNITO_CLIENT_SECRET")
 
+    # Gemini
+    google_api_key: str | None = Field(default=None, env="GOOGLE_API_KEY", "")
+    # 모델명은 기본값을 환경변수로도 오버라이드 가능하게
+    gemini_model_analysis: str = os.getenv("GEMINI_MODEL_ANALYSIS", "gemini-2.5-flash")
+    gemini_model_json: str = os.getenv("GEMINI_MODEL_JSON", "gemini-2.5-flash")
+
 
 class OtherSettings(BaseSettings):
     """
