@@ -26,3 +26,37 @@ class AnalysisResponse(BaseModel):
             ]
         }
     }
+
+class AnalysisResultCreateIn(BaseModel):
+    analysis_job_id: int = Field(..., description="연결할 분석 작업 ID")
+    evaluation_type: Literal["overall", "market", "industry", "feedback"] = Field(
+        ..., description="평가 유형"
+    )
+    score: Optional[condecimal(max_digits=5, decimal_places=2)] = Field(
+        None, description="점수(0.00~100.00)"
+    )
+    summary: Optional[str] = Field(None, description="요약")
+    details: Dict[str, Any] = Field(
+        default_factory=dict, description="분석 상세 JSON 데이터(JSONB로 저장)"
+    )
+
+    @field_validator("score")
+    @classmethod
+    def _check_score(cls, v):
+        if v is None:
+            return v
+        if v < 0 or v > 100:
+            raise ValueError("score must be between 0 and 100")
+        return v
+
+class AnalysisResultOut(BaseModel):
+    id: int
+    analysis_job_id: int
+    evaluation_type: str
+    score: Optional[condecimal(max_digits=5, decimal_places=2)] = None
+    summary: Optional[str] = None
+    details: Dict[str, Any]
+    created_at: Optional[str] = None
+
+    class Config:
+        from_attributes = True  # ORM 객체 → Pydantic 변환 허용
