@@ -7,7 +7,8 @@ import tempfile
 import boto3
 
 from fastapi import APIRouter, HTTPException, status
-from app.schemas.evaluation import AnalysisCreateIn, AnalysisResponse
+from app.schemas.evaluation import AnalysisCreateIn, AnalysisResponse, AnalysisResultCreateIn, AnalysisResultOut
+from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
 from app.prompts.yeobi_startup import (
     SYSTEM_PROMPT,
@@ -23,6 +24,13 @@ from google.genai import types
 router = APIRouter(prefix="/api/v1/analysis", tags=["analysis"])
 
 _s3 = boto3.client("s3", region_name=settings.aws_region)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 async def _analyze_section(client: genai.Client, uploaded_doc, criteria: dict) -> dict:
@@ -63,7 +71,7 @@ async def _analyze_section(client: genai.Client, uploaded_doc, criteria: dict) -
     return {"criteria": criteria, "analysis_text": text}
 
 
-@router.post("/requests", response_model=AnalysisResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/request", response_model=AnalysisResponse, status_code=status.HTTP_201_CREATED)
 async def create_analysis(req: AnalysisCreateIn):
     # 1) S3에서 PDF 다운로드(별도의 파일 저장 API가 이미 업로드 완료했다고 가정)
     try:
@@ -127,3 +135,36 @@ async def create_analysis(req: AnalysisCreateIn):
         sections_analyzed=len(EVALUATION_CRITERIA),
         contest_type=req.contest_type,
     )
+
+@router.post(
+    "/record",
+    response_model=AnalysisResultOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="분석 결과 기록",
+    description="분석 결과를 DB에 기록합니다.",
+)
+def create_result_endpoint(payload: AnalysisResultCreateIn, db=Depends(get_db)):
+    try: # 분석 기록 저장 함수 호출
+        obj = create_analysis_result(
+            db,
+            analysis_job_id=payload.analysis_job_id,
+            evaluation_type=payload.evaluation_type,
+            score=float(payload.score) if payload.score is not None else None,
+            summary=payload.summary,
+            details=payload.details,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB 기록 중 오류: {e}")
+    return obj
+
+@router.get(
+    "/results/{result_id}",
+    response_model=AnalysisResultOut,
+    summary="분석 결과 단건 조회",
+    description="기본 키(result_id)로 저장된 분석 결과 레코드를 조회(SELECT)합니다.",
+) # Select 명령으로 분석 결과 레코드 조회
+def get_result_endpoint(result_id: int, db: Session = Depends(get_db)):
+    obj = get_analysis_result(db, result_id=result_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="analysis result not found")
+    return obj
