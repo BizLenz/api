@@ -2,7 +2,6 @@ import pytest
 from httpx import AsyncClient
 from unittest.mock import AsyncMock, MagicMock
 import json
-import os
 from src.app.main import app
 
 # --- 테스트용 가짜 데이터 및 모의 객체 설정 ---
