@@ -7,7 +7,7 @@ import tempfile
 import boto3
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from database import get_db
+from app.database import get_db
 from app.schemas.evaluation import AnalysisCreateIn, AnalysisResponse, AnalysisResultCreateIn, AnalysisResultOut
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
@@ -19,8 +19,8 @@ from app.prompts.yeobi_startup import (
 )
 
 # Google GenAI SDK
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 
 router = APIRouter(prefix="/api/v1/analysis", tags=["analysis"])
 
