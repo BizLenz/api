@@ -1,7 +1,7 @@
 # file: app/schemas/evaluation.py
 from __future__ import annotations
-from typing import Literal
-from pydantic import BaseModel, Field
+from typing import Literal, Optional
+from pydantic import BaseModel, Field, field_validator
 
 class AnalysisCreateIn(BaseModel):
     contest_type: Literal["예비창업패키지"] = Field(default="예비창업패키지")
