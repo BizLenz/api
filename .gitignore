@@ -288,3 +288,7 @@ fabric.properties
 .env.*
 *.pem
 src/.env
+
+
+.DS_Store
+**/.DS_Store
