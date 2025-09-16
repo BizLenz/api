@@ -1,6 +1,6 @@
 # file: app/schemas/evaluation.py
 from __future__ import annotations
-from typing import Literal, Optional, Dit, Any, List
+from typing import Literal, Optional, Dict, Any
 from pydantic import BaseModel, Field, field_validator, condecimal
 
 
