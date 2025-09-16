@@ -7,13 +7,24 @@ import re
 
 # --- POST /files/upload endpoint (presigned URL generation) ---
 class PresignedUrlRequest(BaseModel):
-    user_id: Optional[str] = Field(None, description="Ignored, extracted from JWT")
+    user_id: str = Field(..., description="User ID")
     file_name: str = Field(..., description="File Name")
     mime_type: str = Field(..., max_length=100, description="MIME Type")
     file_size: int = Field(..., gt=0, description="Size of the file in bytes")
     description: Optional[str] = Field(
         None, max_length=500, description="Description of the file"
     )
+
+    @field_validator("user_id")
+    @classmethod
+    def validate_user_id(cls, v):
+        uuid_pattern = re.compile(
+            r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            re.IGNORECASE,
+        )
+        if not uuid_pattern.match(v):
+            raise ValueError("User ID must be a valid UUID.")
+        return v
 
     @field_validator("file_name")
     @classmethod
@@ -66,7 +77,7 @@ class PresignedUrlRequest(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "user_id": None,
+                "user_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
                 "file_name": "My_Business_Plan.pdf",
                 "mime_type": "application/pdf",
                 "file_size": 2048000,
@@ -78,7 +89,6 @@ class PresignedUrlRequest(BaseModel):
 
 # --- POST /files/upload/metadata endpoint (metadata saving) ---
 class FileMetadataSaveRequest(BaseModel):
-    user_id: Optional[str] = Field(None, description="Ignored, extracted from JWT")
     file_name: str = Field(..., max_length=255, description="File Name")
     mime_type: str = Field(..., max_length=100, description="MIME Type")
     file_size: int = Field(..., gt=0, description="Size of the file in bytes")
@@ -133,6 +143,7 @@ class FileMetadataSaveRequest(BaseModel):
             raise ValueError(f"File size cannot exceed {max_size / (1024 * 1024)}MB.")
         if v <= 0:
             raise ValueError("File size must be bigger than 0.")
+            return v
         return v
 
     @field_validator("s3_key")
@@ -152,20 +163,21 @@ class FileMetadataSaveRequest(BaseModel):
     class Config:
         schema_extra = {
             "example": {
-                "user_id": None,
+                "user_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
                 "file_name": "My_Business_Plan.pdf",
                 "mime_type": "application/pdf",
                 "file_size": 2048000,
                 "description": "Annual business plan for Q3",
-                "s3_key": "uploads/uuid_My_Business_Plan.pdf",
-                "s3_file_url": "https://your-bucket.s3.amazonaws.com/uploads/uuid_My_Business_Plan.pdf",
+                "s3_key": "uploads/a1b2c3d4-e5f6-7890-1234-567890abcdef_My_Business_Plan.pdf",
+                "s3_file_url": "https://your-bucket.s3.amazonaws.com/uploads/a1b2c3d4-e5f6-7890-1234-567890abcdef_My_Business_Plan.pdf",
             }
         }
         allow_population_by_field_name = True
 
 
 class FileUploadRequest(BaseModel):
-    user_id: Optional[str] = Field(None, description="Ignored, extracted from JWT")
+    # 파일 테이블 기반 정보 필드
+    user_id: int = Field(..., description="User ID")
     file_name: str = Field(..., description="File name")
     mime_type: str = Field(..., max_length=100, description="MIME type")
     file_size: int = Field(..., gt=0, description="File size in bytes")
@@ -240,12 +252,28 @@ class FileUploadRequest(BaseModel):
             raise ValueError(f"File size cannot exceed {max_size_mb}MB.")
         if v <= 0:
             raise ValueError("File size must be bigger than 0.")
+
+        return v
+
+    @field_validator("user_id")
+    def validate_user_id(cls, v):
+        """
+        Check for user ID
+        - Only positive integer is allowed
+        """
+        if not isinstance(v, int) or v <= 0:
+            raise ValueError("User ID must be a positive integer.")
         return v
 
     class Config:
+        """
+        Pydantic model settings
+        Settings for FastAPI auto documentation and JSON schema generation
+        """
+
         schema_extra = {
             "example": {
-                "user_id": None,
+                "user_id": 123,
                 "file_name": "example.pdf",
                 "mime_type": "application/pdf",
                 "file_size": 204800,
@@ -259,15 +287,16 @@ class FileUploadResponse(BaseModel):
     """
     Model for file upload response
     """
+
     id: int = Field(..., description="File ID")
-    user_id: Optional[str] = Field(None, description="Ignored, extracted from JWT")
+    user_id: int = Field(..., description="User ID")
     file_name: str = Field(..., description="File Name")
     file_path: str = Field(..., description="S3 URL")
     mime_type: str = Field(..., description="MIME Type")
     file_size: int = Field(..., description="File size in bytes")
     created_at: datetime = Field(..., description="File created at")
     updated_at: datetime = Field(..., description="File updated at")
-        
+
     # Additional metadata fields
     success: bool = Field(..., description="Upload success")
     message: Optional[str] = Field(None, description="Additional message")
@@ -275,10 +304,11 @@ class FileUploadResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
         schema_extra = {
             "example": {
                 "id": 1,
-                "user_id": None,
+                "user_id": 123,
                 "file_name": "example.pdf",
                 "file_path": "uploads/example.pdf",
                 "mime_type": "application/pdf",
@@ -296,6 +326,7 @@ class FileListResponse(BaseModel):
     """
     Pydantic model for file list response
     """
+
     id: int
     file_name: str
     file_size: int
@@ -308,8 +339,8 @@ class FileListResponse(BaseModel):
 
 class FileUploadError(BaseModel):
     """
-    Pydantic model for file upload error response
-    """
+    Pydantic model for file upload error response"""
+
     success: bool = Field(False, description="Upload error")
     error_code: str = Field(..., description="Error code")
     error_message: str = Field(..., description="Error message")

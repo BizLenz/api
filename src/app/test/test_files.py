@@ -1,7 +1,6 @@
 # src/app/test/test_files.py
-#pytest -v src/app/test/test_files.py
+# pytest -v src/app/test/test_files.py
 
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -62,4 +61,3 @@ def test_download_file():
     # 존재하지 않는 file_id → 최소한 404는 반환해야 정상
     response = client.get("/files/99999/download")
     assert response.status_code in (200, 401, 403, 404)
-
