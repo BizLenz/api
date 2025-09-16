@@ -5,8 +5,6 @@ import asyncio
 import pathlib
 import tempfile
 import boto3
-from typing import Optional, Dict, Any, List
-from pydantic import condecimal
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
