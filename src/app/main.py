@@ -180,3 +180,4 @@ async def inject_claims(request: Request, call_next):
 
 # Lambda 핸들러
 handler = Mangum(app, lifespan="off")
+
