@@ -111,4 +111,5 @@ def get_industry_data(
             "industry_trends": analysis_record.industry_trends,
             "market_conditions": analysis_record.market_conditions,
         },
+            "sources": [analysis_record.source] if analysis_record.source else [],
     }
