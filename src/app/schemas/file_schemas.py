@@ -259,6 +259,7 @@ class FileUploadResponse(BaseModel):
     """
     Model for file upload response
     """
+
     id: int = Field(..., description="File ID")
     user_id: Optional[str] = Field(None, description="Ignored, extracted from JWT")
     file_name: str = Field(..., description="File Name")
@@ -267,7 +268,7 @@ class FileUploadResponse(BaseModel):
     file_size: int = Field(..., description="File size in bytes")
     created_at: datetime = Field(..., description="File created at")
     updated_at: datetime = Field(..., description="File updated at")
-        
+
     # Additional metadata fields
     success: bool = Field(..., description="Upload success")
     message: Optional[str] = Field(None, description="Additional message")
@@ -296,6 +297,7 @@ class FileListResponse(BaseModel):
     """
     Pydantic model for file list response
     """
+
     id: int
     file_name: str
     file_size: int
@@ -310,6 +312,7 @@ class FileUploadError(BaseModel):
     """
     Pydantic model for file upload error response
     """
+
     success: bool = Field(False, description="Upload error")
     error_code: str = Field(..., description="Error code")
     error_message: str = Field(..., description="Error message")
