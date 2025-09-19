@@ -9,22 +9,32 @@ Parameters:
   CognitoUserPoolArn:
     Type: String
     Description: ARN of existing Cognito User Pool (e.g., arn:aws:cognito-idp:ap-northeast-2:123456789012:userpool/ap-northeast-2_ABCdef123)
+<<<<<<< HEAD
   S3BucketName:
     Type: String
     Description: S3 bucket name for original files
+=======
+>>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
 
 
 Globals:
   Function:
+<<<<<<< HEAD
     Runtime: python3.12
+=======
+    Runtime: python3.11
+>>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
     Timeout: 10
     MemorySize: 512
     Architectures: [x86_64]
     Environment:
       Variables:
         STAGE: dev
+<<<<<<< HEAD
         GOOGLE_API_KEY: your-GOOGLE_API_KEY
         GEMINI_MODEL_ANALYSIS: gemini-1.5-flash
+=======
+>>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
 
 Resources:
   RestApi:
@@ -46,6 +56,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: bizlenz-fastapi-rest-proxy
+<<<<<<< HEAD
       CodeUri: src/
       Handler: app.main.handler
       Policies:
@@ -53,6 +64,12 @@ Resources:
         - S3ReadPolicy:
                   BucketName: bizlenz-original-files-bucket-dev
         - AmazonRDSFullAccess
+=======
+      CodeUri: .
+      Handler: main.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+>>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
       Events:
         RootProxy:
           Type: Api
