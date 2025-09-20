@@ -1,20 +1,23 @@
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, status
 from sqlalchemy.orm import Session
-from typing import Optional, Dict, Any, List
+from sqlalchemy import desc
+from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError, BotoCoreError
 from uuid import uuid4
-from app.schemas.file_schemas import FileUploadRequest
-from app.crud.file_matadata import create_file_metadata
-from app.core.config import settings  # 환경설정 객체 import
+from app.crud.file_metadata import create_business_plan
+from app.core.config import settings
 from app.database import get_db
 from app.core.security import require_scope, get_claims
-from app.core.exceptions import to_http_exception  # 예외 변환기 import
+from app.core.exceptions import to_http_exception
+from app.crud.user import get_or_create_user
+from app.models import BusinessPlan
 import boto3
 
-# 라우터: 기본적으로 read 권한 검사(값은 주입되지 않음. 주입하려면 각 엔드포인트 파라미터로 Depends 사용)
-files = APIRouter(dependencies=[Depends(require_scope("bizlenz.read"))])
+from app.schemas.file_schemas import PresignedUrlRequest, FileMetadataSaveRequest
 
-# S3 클라이언트
+# bizlenz/read scope is always a must
+files = APIRouter(dependencies=[Depends(require_scope("bizlenz/read"))])
+
 s3_client = boto3.client(
     "s3",
     aws_access_key_id=settings.aws_access_key_id,
@@ -23,167 +26,412 @@ s3_client = boto3.client(
 )
 
 
-# PDF Presigned URL 발급 엔드포인트
+def is_admin(claims: Dict[str, Any]) -> bool:
+    """Check for admin group"""
+    groups = claims.get("cognito:groups", [])
+    return "admin" in groups or "administrators" in groups
+
+
+def get_user_by_cognito_sub(db: Session, cognito_sub: str) -> str:
+    """cognito_sub를 그대로 user_id로 사용"""
+    get_or_create_user(db, cognito_sub=cognito_sub)
+    return cognito_sub
+
+
+def get_current_user_id(claims: Dict[str, Any]) -> str:
+    """Get user ID(sub) from JWT claims"""
+    cognito_sub = claims.get("sub")
+    if not cognito_sub:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User ID not found in token claims",
+        )
+    return cognito_sub
+
+
+def serialize_business_plan(file: BusinessPlan) -> dict:
+    """BusinessPlan ORM object -> dict"""
+    return {
+        "id": file.id,
+        "file_name": file.file_name,
+        "file_path": file.file_path,
+        "mime_type": file.mime_type,
+        "file_size": file.file_size,
+        "status": file.status,
+        "created_at": file.created_at.isoformat() if file.created_at else None,
+        "updated_at": file.updated_at.isoformat() if file.updated_at else None,
+        "latest_job_id": file.latest_job_id,
+    }
+
+
+#####################################
+# Start of Upload-related endpoints #
+#####################################
+
+
 @files.post("/upload", response_model=dict)
 def upload(
-    file: FileUploadRequest,
-    claims: Dict[str, Any] = Depends(require_scope("bizlenz.write")),  # 쓰기 권한
+    file_details: PresignedUrlRequest,
+    claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
 ):
-    """
-    PDF 파일 presigned URL 발급 엔드포인트
-    - presigned URL로 S3에 파일 업로드 (PUT 방식)
-    - 환경설정 정보 기반 버킷/경로 설정
-    - 예외 발생 시 FastAPI 오류 반환
-    """
+    """Make presigned URL for file upload"""
     try:
-        key = f"{settings.s3_upload_folder}/{uuid4()}_{file.file_name}"
+        user_id = get_current_user_id(claims)
+
+        s3_object_key_basename = f"{uuid4()}_{file_details.file_name}"
+        s3_full_key = f"{settings.s3_upload_folder}/{s3_object_key_basename}"
+
         params = {
             "Bucket": settings.s3_bucket_name,
-            "Key": key,
-            "ContentType": file.mime_type,
+            "Key": s3_full_key,
+            "ContentType": file_details.mime_type,
         }
-        # 파일 무결성을 강화하려면 content_md5 필드를 스키마에 추가해 ContentMD5 전달
+
         url = s3_client.generate_presigned_url(
             "put_object",
             Params=params,
-            ExpiresIn=300,  # 5분
+            ExpiresIn=300,
         )
+
         return {
-            "upload_url": url,
-            "file_url": f"https://{settings.s3_bucket_name}.s3.amazonaws.com/{key}",
-            "key": key,
+            "user_id": user_id,
+            "file_name": file_details.file_name,
+            "mime_type": file_details.mime_type,
+            "file_size": file_details.file_size,
+            "success": True,
+            "message": "Presigned URL generated successfully",
+            "presigned_url": url,
+            "key": s3_full_key,
+            "file_url": f"https://{settings.s3_bucket_name}.s3.amazonaws.com/{s3_full_key}",
         }
     except (ClientError, BotoCoreError, Exception) as err:
         raise to_http_exception(err)
 
 
-# RDS 파일 메타데이터 저장 엔드포인트
 @files.post("/upload/metadata", response_model=dict)
 def save_file_metadata(
-    metadata: FileUploadRequest,
+    metadata: FileMetadataSaveRequest,
     db: Session = Depends(get_db),
-    claims: Dict[str, Any] = Depends(require_scope("bizlenz.write")),  # 쓰기 권한
+    claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
 ):
-    """
-    클라이언트가 S3 업로드 후 호출하는 메타데이터 저장 API
-    """
+    """Upload to S3(/upload) -> save metadata to DB"""
     try:
-        db_file = create_file_metadata(db, metadata)
-        return {"message": "File metadata saved successfully", "file_id": db_file.id}
+        if not metadata.s3_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="S3 object key (s3_key) is required for metadata saving.",
+            )
+        if not metadata.s3_file_url:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="S3 file URL (s3_file_url) is required for metadata saving.",
+            )
+
+        user_id = get_user_by_cognito_sub(db, get_current_user_id(claims))
+        db_business_plan = create_business_plan(db, metadata, user_id=user_id)
+
+        return {
+            "success": True,
+            "message": "File metadata saved successfully",
+            "file_id": db_business_plan.id,
+            "user_id": user_id,
+            "status": "pending",
+            "created_at": db_business_plan.created_at.isoformat()
+            if db_business_plan.created_at
+            else None,
+            "updated_at": db_business_plan.updated_at.isoformat()
+            if db_business_plan.updated_at
+            else None,
+        }
+    except HTTPException as e:
+        raise e
     except Exception as e:
+        print(f"Error saving business plan metadata: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Error saving file metadata: {str(e)}"
         )
 
 
-# S3 파일 삭제 엔드포인트
-@files.delete("/{key:path}")
-async def delete_file(
-    key: str,
-    claims: Dict[str, Any] = Depends(require_scope("bizlenz.write")),  # 쓰기 권한
+#####################################
+# End of Upload-related endpoints   #
+#####################################
+
+#####################################
+# Start of Search-related endpoints #
+#####################################
+
+
+@files.get("/search", response_model=dict)
+def search_my_files(
+    keywords: Optional[str] = Query(None, description="Keyword for searching files"),
+    status_filter: Optional[str] = Query(
+        None, description="상태 필터 (pending, processing, completed, failed)"
+    ),
+    limit: int = Query(50, ge=1, le=100, description="Number of files to search for"),
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_claims),
 ):
-    """
-    S3에서 파일 삭제 엔드포인트
-    - key: S3 내 파일 경로 (예: uploads/example.pdf)
-    """
-    try:
-        s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=key)
-        return {"message": "File deleted successfully"}
-    except (ClientError, BotoCoreError, Exception) as e:
-        raise to_http_exception(e)
+    """Search user's files"""
+    user_id = get_current_user_id(claims)
+
+    query = db.query(BusinessPlan).filter(BusinessPlan.user_id == user_id)
+
+    if keywords:
+        query = query.filter(BusinessPlan.file_name.ilike(f"%{keywords}%"))
+
+    if status_filter:
+        if status_filter not in ["pending", "processing", "completed", "failed"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status filter"
+            )
+        query = query.filter(BusinessPlan.status == status_filter)
+
+    _files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
+
+    return {
+        "success": True,
+        "results": [serialize_business_plan(_file) for _file in _files],
+    }
 
 
-# S3 파일 검색 엔드포인트
-@files.get("/search")
-async def search_files(
-    keywords: Optional[str] = Query(None, description="파일 이름 검색 키워드"),
-    extension: Optional[str] = Query(None, description="파일 확장자 (예: pdf)"),
-    claims: Dict[str, Any] = Depends(
-        get_claims
-    ),  # 라우터 레벨 read 검사 + 실제 claims 접근
+@files.get("/", response_model=dict)
+def get_my_files(
+    limit: int = Query(50, ge=1, le=100, description="조회할 파일 수"),
+    offset: int = Query(0, ge=0, description="시작 위치 (페이지네이션)"),
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_claims),
 ):
-    """
-    파일 이름 및 확장자 기반 검색 엔드포인트
-    - keywords: 파일명에 포함될 키워드 (optional)
-    - extension: 검색할 파일 확장자 (optional)
-    """
-    try:
-        response = s3_client.list_objects_v2(Bucket=settings.s3_bucket_name)
-        if "Contents" not in response:
-            return []
+    """Search all files uploaded by the user (최신순)"""
+    user_id = get_current_user_id(claims)
 
-        files = response["Contents"]
-        result: List[Dict[str, Any]] = []
-        normalized_extension = (
-            f".{extension.lower().lstrip('.')}" if extension else None
+    _files = (
+        db.query(BusinessPlan)
+        .filter(BusinessPlan.user_id == user_id)
+        .order_by(desc(BusinessPlan.created_at))
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
+
+    return {
+        "success": True,
+        "results": [serialize_business_plan(_file) for _file in _files],
+    }
+
+
+#####################################
+# End of Search-related endpoints   #
+#####################################
+
+
+@files.delete("/{file_id}")
+def delete_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
+):
+    """Delete file, both in S3 and DB"""
+    user_id = get_current_user_id(claims)
+
+    try:
+        file = db.query(BusinessPlan).filter(BusinessPlan.id == file_id).first()
+
+        if not file:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        if file.user_id != user_id and not is_admin(claims):
+            raise HTTPException(
+                status_code=403,
+                detail="Permission denied: You can only delete your own files",
+            )
+
+        if file.file_path:
+            s3_key = file.file_path.split(
+                f"{settings.s3_bucket_name}.s3.amazonaws.com/"
+            )[-1]
+            s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=s3_key)
+
+        db.delete(file)
+        db.commit()
+
+        return {
+            "success": True,
+            "message": "File deleted successfully",
+            "deleted_file_id": file_id,
+        }
+
+    except (ClientError, BotoCoreError) as s3_error:
+        db.rollback()
+        print(f"S3 deletion failed: {s3_error}")
+        raise HTTPException(
+            status_code=500, detail="File deletion failed: S3 error occurred"
+        )
+    except HTTPException as e:
+        db.rollback()
+        raise e
+    except Exception as e:
+        db.rollback()
+        print(f"Database deletion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting file: {str(e)}")
+
+
+@files.get("/{file_id}/download", response_model=dict)
+def download_file(
+    file_id: int,
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_claims),
+):
+    """Download the file"""
+    user_id = get_current_user_id(claims)
+
+    try:
+        _file = (
+            db.query(BusinessPlan)
+            .filter(BusinessPlan.id == file_id, BusinessPlan.user_id == user_id)
+            .first()
         )
 
-        for obj in files:
-            file_name = obj["Key"]
-            if keywords and keywords.lower() not in file_name.lower():
-                continue
-            if normalized_extension and not file_name.lower().endswith(
-                normalized_extension
-            ):
-                continue
-            result.append(
-                {
-                    "file_name": file_name,
-                    "last_modified": obj["LastModified"].isoformat(),
-                    "size": obj["Size"],
-                }
+        if not _file:
+            raise HTTPException(
+                status_code=404, detail="File not found or access denied"
             )
-        return result
-    except (ClientError, BotoCoreError, Exception) as e:
-        raise to_http_exception(e)
 
+        if not _file.file_path:
+            raise HTTPException(status_code=404, detail="File path not found")
 
-# S3 파일 목록 페이지네이션 조회 엔드포인트
-@files.get("/select")
-async def select_files(
-    limit: int = Query(
-        10, ge=1, le=1000, description="페이지당 조회할 객체 수 (1~1000)"
-    ),
-    continuation_token: Optional[str] = Query(
-        None, description="다음 페이지 조회를 위한 ContinuationToken"
-    ),
-    claims: Dict[str, Any] = Depends(
-        get_claims
-    ),  # 라우터 레벨 read 검사 + 실제 claims 접근
-) -> Dict:
-    """
-    S3 버킷 내 객체를 커서 기반 페이지네이션 방식으로 조회합니다.
-    - limit: 한 페이지당 객체 수
-    - continuation_token: 이전 요청에서 받은 NextContinuationToken
-    """
-    try:
-        # paginator 사용 버전 유지
-        paginator = s3_client.get_paginator("list_objects_v2")
-        paginate_params = {
-            "Bucket": settings.s3_bucket_name,
-            "PaginationConfig": {"PageSize": limit},
-        }
-        if continuation_token:
-            paginate_params["PaginationConfig"]["StartingToken"] = continuation_token
+        try:
+            s3_key = _file.file_path.split(
+                f"{settings.s3_bucket_name}.s3.amazonaws.com/"
+            )[-1]
+            presigned_url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": settings.s3_bucket_name, "Key": s3_key},
+                ExpiresIn=300,
+            )
 
-        page_iterator = paginator.paginate(**paginate_params)
-
-        page = next(page_iterator, None)
-        if not page or "Contents" not in page:
-            return {"data": [], "pagination": {"next_token": None, "count": 0}}
-
-        files_list = [
-            {
-                "key": obj["Key"],
-                "last_modified": obj["LastModified"].isoformat(),
-                "size": obj["Size"],
+            return {
+                "success": True,
+                "file_id": file_id,
+                "file_name": _file.file_name,
+                "presigned_url": presigned_url,
             }
-            for obj in page["Contents"]
-        ]
-        next_token = page.get("NextContinuationToken")
+
+        except Exception as s3_error:
+            print(f"S3 presigned URL generation failed: {s3_error}")
+            raise HTTPException(
+                status_code=500, detail="Failed to generate download URL"
+            )
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error preparing file download: {str(e)}"
+        )
+
+
+#####################################
+# Start of Admin-related endpoints #
+#####################################
+
+
+@files.get("/admin/all", response_model=dict)
+def get_all_files_admin(
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_claims),
+    limit: int = Query(100, ge=1, le=500, description="조회할 파일 수"),
+    offset: int = Query(0, ge=0, description="시작 위치"),
+):
+    """Get ALL files"""
+    if not is_admin(claims):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        _files = (
+            db.query(BusinessPlan)
+            .order_by(desc(BusinessPlan.created_at))
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
         return {
-            "data": files_list,
-            "pagination": {"next_token": next_token, "count": len(files_list)},
+            "success": True,
+            "results": [
+                {
+                    "id": file.id,
+                    "file_name": file.file_name,
+                    "status": file.status,
+                    "file_size": file.file_size,
+                    "mime_type": file.mime_type,
+                    "created_at": file.created_at.isoformat()
+                    if file.created_at
+                    else None,
+                    "user_id": file.user_id,
+                    "latest_job_id": file.latest_job_id,
+                }
+                for file in _files
+            ],
         }
-    except (ClientError, BotoCoreError, Exception) as e:
-        raise to_http_exception(e)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving all files: {str(e)}"
+        )
+
+
+@files.get("/admin/search", response_model=dict)
+def search_all_files_admin(
+    keywords: Optional[str] = Query(None, description="Keyboard to search for"),
+    user_id: Optional[str] = Query(None, description="Filter for a specific user id"),
+    status_filter: Optional[str] = Query(
+        None, description="Filter for a specific status"
+    ),
+    db: Session = Depends(get_db),
+    claims: Dict[str, Any] = Depends(get_claims),
+    limit: int = Query(100, ge=1, le=500, description="Number of files to search for"),
+):
+    """Search ALL files"""
+    if not is_admin(claims):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    try:
+        query = db.query(BusinessPlan)
+
+        if keywords:
+            query = query.filter(BusinessPlan.file_name.ilike(f"%{keywords}%"))
+
+        if user_id:
+            query = query.filter(BusinessPlan.user_id == user_id)
+
+        if status_filter:
+            if status_filter not in ["pending", "processing", "completed", "failed"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid status filter",
+                )
+            query = query.filter(BusinessPlan.status == status_filter)
+
+        _files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
+
+        return {
+            "success": True,
+            "results": [
+                {
+                    "id": file.id,
+                    "file_name": file.file_name,
+                    "status": file.status,
+                    "file_size": file.file_size,
+                    "mime_type": file.mime_type,
+                    "created_at": file.created_at.isoformat()
+                    if file.created_at
+                    else None,
+                    "user_id": file.user_id,
+                    "latest_job_id": file.latest_job_id,
+                }
+                for file in _files
+            ],
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching files: {str(e)}")
