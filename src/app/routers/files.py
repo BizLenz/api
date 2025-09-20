@@ -101,6 +101,8 @@ def upload(
             "success": True,
             "message": "Presigned URL generated successfully",
             "presigned_url": url,
+            "key": s3_full_key,
+            "file_url": f"https://{settings.s3_bucket_name}.s3.amazonaws.com/{s3_full_key}",
         }
     except (ClientError, BotoCoreError, Exception) as err:
         raise to_http_exception(err)
