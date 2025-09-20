@@ -13,5 +13,9 @@ async def test_healthcheck():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as ac:
-        resp = await ac.get("/healthz")
-        assert resp.status_code == 200
+        response = await ac.get("/healthz")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert isinstance(data["uptime"], float)
