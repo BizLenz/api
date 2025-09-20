@@ -73,7 +73,7 @@ async def create_analysis(req: AnalysisCreateIn):
         with tempfile.TemporaryDirectory() as td:
             filename = req.s3_key.split("/")[-1] or "input.pdf"
             local_path = pathlib.Path(td) / filename
-            _s3.download_file(settings.s3_bucket, req.s3_key, str(local_path))
+            _s3.download_file(settings.s3_bucket_name, req.s3_key, str(local_path))
 
             # Gemini 클라이언트 준비 및 파일 업로드 (최신 방식)
             genai.configure(api_key=settings.google_api_key)
