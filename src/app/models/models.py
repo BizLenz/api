@@ -25,29 +25,21 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(
-        Integer, primary_key=True, autoincrement=True, comment="서비스 내부 고유 ID"
-    )
-    cognito_sub = Column(
-        String(255),
-        unique=True,
-        nullable=False,
-        comment="Cognito 사용자 고유 식별자 (JWT sub)",
+        String(255), primary_key=True, comment="Cognito Sub (서비스 내부 고유 ID)"
     )
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
         comment="서비스 프로필 생성 일시",
     )
-    total_token_usage = Column(
-        Integer, server_default="0", nullable=False, comment="누적 토큰 사용량"
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        comment="프로필 수정 일시",
     )
 
-    __table_args__ = (
-        Index("idx_users_cognito_sub", "cognito_sub"),
-        Index("idx_users_token_usage", "total_token_usage"),
-        Index("idx_users_created_at", "created_at"),
-        CheckConstraint("total_token_usage >= 0", name="ck_users_token_usage_positive"),
-    )
+    __table_args__ = (Index("idx_users_created_at", "created_at"),)
 
     business_plans = relationship(
         "BusinessPlan", back_populates="user", cascade="all, delete-orphan"
@@ -64,7 +56,7 @@ class BusinessPlan(Base):
         Integer, primary_key=True, autoincrement=True, comment="사업계획서 고유 ID"
     )
     user_id = Column(
-        Integer,
+        String(255),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         comment="업로더 사용자",
