@@ -6,12 +6,10 @@
 # 한국어 주석으로 초보자 이해 돕기. Ruff 린팅 통과 (E501 등 준수).
 # 주의: 동기 버전으로 async 문제를 피함. 모킹을 awaitable하게 수정 (오류 방지).
 
-import pytest
 import logging
 from unittest.mock import patch, MagicMock, AsyncMock
 import moto  # S3 모킹 라이브러리 (AWS 서비스 시뮬레이션)
 import boto3  # moto와 함께 AWS 클라이언트 생성
-import asyncio  # 모킹 시 coroutine 생성에 사용
 
 from fastapi.testclient import TestClient  # 동기 테스트 클라이언트
 from fastapi import FastAPI
@@ -41,16 +39,18 @@ def test_request_endpoint():  # 동기 def로 유지
 
     # 모킹: Gemini API 구성 (genai.configure 호출 모킹)
     with patch("app.routers.evaluation.genai.configure") as mock_configure:
-        mock_configure.return_value = None
+        mock_configure.return_value = None  # mock_configure 사용 (F841 방지)
 
         # 모킹: upload_file_async (AsyncMock으로 awaitable 모킹)
         mock_uploaded_file = MagicMock()
         with patch("app.routers.evaluation.genai.upload_file_async", AsyncMock(return_value=mock_uploaded_file), create=True) as mock_upload:
+            mock_upload.return_value = mock_uploaded_file  # mock_upload 사용 (F841 방지)
 
             # 모킹: GenerativeModel 및 generate_content_async (AsyncMock으로 awaitable 모킹 - "can't be used in await" 오류 해결)
             mock_model = MagicMock()
             mock_model.generate_content_async = AsyncMock(return_value=MagicMock(text="Fake analysis text"))
             with patch("app.routers.evaluation.genai.GenerativeModel", return_value=mock_model, create=True) as mock_gen_model:
+                mock_gen_model.return_value = mock_model  # mock_gen_model 사용 (F841 방지)
 
                 # 모킹: 최종 보고서 모델 (AsyncMock으로 awaitable 모킹)
                 mock_final_model = MagicMock()
@@ -60,7 +60,9 @@ def test_request_endpoint():  # 동기 def로 유지
                     # 모킹: asyncio.gather와 wait_for (AsyncMock으로 awaitable 모킹)
                     fake_results = [{"criteria": c, "analysis_text": "Fake text"} for c in FAKE_EVALUATION_CRITERIA]
                     with patch("asyncio.gather", AsyncMock(return_value=fake_results)) as mock_gather:
+                        mock_gather.return_value = fake_results  # mock_gather 사용 (F841 방지)
                         with patch("asyncio.wait_for", AsyncMock(return_value=fake_results)) as mock_wait_for:
+                            mock_wait_for.return_value = fake_results  # mock_wait_for 사용 (F841 방지)
 
                             # 동기 클라이언트로 API 호출 (TestClient 사용)
                             response = client.post(
