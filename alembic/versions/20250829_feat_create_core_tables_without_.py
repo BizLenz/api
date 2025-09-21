@@ -217,4 +217,5 @@ def downgrade() -> None:
     op.drop_index('idx_competitor_analysis_market_year', table_name='competitor_analysis')
     op.drop_index('idx_competitor_analysis_competitor', table_name='competitor_analysis')
     op.drop_table('competitor_analysis')
+    op.execute('DROP TYPE IF EXISTS upload_status_enum')
     # ### end Alembic commands ###
