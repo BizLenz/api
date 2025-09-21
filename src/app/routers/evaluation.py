@@ -1,4 +1,5 @@
-# src/app/routers/analysis.py
+# src/app/routers/evaluation.py
+# S3 예외 처리 개선: '404' 코드 체크 추가, 404 반환
 
 from __future__ import annotations
 import asyncio
@@ -17,14 +18,17 @@ from app.prompts.yeobi_startup import (
     FINAL_REPORT_PROMPT,
     EVALUATION_CRITERIA,
 )
-
+from botocore.exceptions import ClientError
 # Google GenAI SDK (최신 방식 Import)
 import google.generativeai as genai
 from google.generativeai import types
 
+
 router = APIRouter(prefix="/api/v1/analysis", tags=["analysis"])
 
+
 _s3 = boto3.client("s3", region_name=settings.aws_region)
+
 
 
 # 첫 번째 인자를 client가 아닌 uploaded_doc_file로 받도록 변경하고 타입 힌트를 명확히 합니다.
@@ -45,12 +49,14 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
             f"  - **근거:** [점수 부여에 대한 구체적인 이유]"
         )
 
+
     prompt = SECTION_ANALYSIS_PROMPT_TEMPLATE.format(
         section_name=criteria["section_name"],
         max_score=criteria["max_score"],
         pillars_description="\n    ".join(pillars_description),
         pillar_scoring_format="\n".join(pillar_scoring_format),
     )
+
 
     # 최신 API 호출 방식
     model = genai.GenerativeModel(
@@ -67,13 +73,20 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
     return {"criteria": criteria, "analysis_text": text}
 
 
+
 @router.post("/request", response_model=AnalysisResponse, status_code=status.HTTP_201_CREATED)
 async def create_analysis(req: AnalysisCreateIn):
     try:
         with tempfile.TemporaryDirectory() as td:
             filename = req.s3_key.split("/")[-1] or "input.pdf"
             local_path = pathlib.Path(td) / filename
-            _s3.download_file(settings.s3_bucket_name, req.s3_key, str(local_path))
+            try:
+                _s3.download_file(settings.s3_bucket_name, req.s3_key, str(local_path))
+            except ClientError as e:  # ClientError로 넓은 S3 예외 catch
+                if e.response['Error']['Code'] in ['404', 'NoSuchKey']:  # '404'와 'NoSuchKey' 둘 다 체크
+                    raise HTTPException(status_code=404, detail="S3 객체를 찾을 수 없습니다.")
+                raise HTTPException(status_code=500, detail=f"S3 다운로드 오류: {e}")
+
 
             # Gemini 클라이언트 준비 및 파일 업로드 (최신 방식)
             genai.configure(api_key=settings.google_api_key)
@@ -82,9 +95,11 @@ async def create_analysis(req: AnalysisCreateIn):
                 display_name=filename
             )
 
-            # 섹션 병렬 분석 (이제 호출 방식과 함수 정의가 일치합니다)
+
+            # 섹션 병렬 분석
             tasks = [_analyze_section(uploaded_doc_file, c) for c in EVALUATION_CRITERIA]
             results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=req.timeout_sec)
+
 
             # 최종 보고서 프롬프트 생성 및 호출
             structured_parts = [
@@ -92,6 +107,7 @@ async def create_analysis(req: AnalysisCreateIn):
                 for r in results
             ]
             final_prompt = FINAL_REPORT_PROMPT.format(structured_analyses_input="\n\n".join(structured_parts))
+
 
             final_report_model = genai.GenerativeModel(
                 model_name=req.json_model,
@@ -106,18 +122,20 @@ async def create_analysis(req: AnalysisCreateIn):
             )
             report_json = getattr(final_resp, "text", "{}")
 
-    except _s3.exceptions.NoSuchKey:
-        raise HTTPException(status_code=404, detail="S3 객체를 찾을 수 없습니다.")
+
+
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="분석 타임아웃")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"분석 중 오류: {e}")
+        raise HTTPException(status_code=404, detail=f"분석 중 오류: {e}")
+
 
     return AnalysisResponse(
         report_json=report_json,
         sections_analyzed=len(EVALUATION_CRITERIA),
         contest_type=req.contest_type,
     )
+
 
 # --- 아래의 DB 관련 엔드포인트들은 그대로 유지합니다 ---
 @router.post(
@@ -140,6 +158,7 @@ def create_result_endpoint(payload: AnalysisResultCreateIn, db: Session = Depend
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"DB 기록 중 오류: {e}")
     return obj
+
 
 
 @router.get(

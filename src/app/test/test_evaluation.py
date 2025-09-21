@@ -92,3 +92,56 @@ def test_request_endpoint():  # 동기 def로 유지
                                 sections_analyzed=response_data["sections_analyzed"],
                                 contest_type=response_data["contest_type"]
                             )
+@moto.mock_aws  # moto로 AWS S3 모킹
+def test_request_endpoint_file_not_found():
+    # moto S3 설정: 가짜 버킷 생성 (파일은 업로드하지 않음, 404 시뮬레이션)
+    s3 = boto3.client("s3")
+    s3.create_bucket(Bucket=settings.s3_bucket_name)  # settings에서 S3 버킷 이름 가져옴
+
+    # 모킹: Gemini 관련 호출 (파일 업로드 전에 실패하므로 최소 모킹)
+    with patch("app.routers.evaluation.genai.configure") as mock_configure:
+        mock_configure.return_value = None  # mock_configure 사용 (F841 방지)
+
+        # 동기 클라이언트로 API 호출 (존재하지 않는 S3 키 사용)
+        response = client.post(
+            "/api/v1/analysis/request",
+            json={
+                "s3_key": "user-uploads/nonexistent/plan.pdf",  # 존재하지 않는 키
+                "contest_type": "예비창업패키지",
+                "json_model": "gemini-1.5-flash",
+                "timeout_sec": 600
+            }
+        )
+        logging.debug(f"Response status: {response.status_code}, content: {response.text}")  # 디버깅 로그 출력
+
+        # 응답 검증 (404 예상, 파일 없음 에러)
+        assert response.status_code == 404, f"Unexpected status code: {response.status_code}, details: {response.text}"
+
+
+# 추가 테스트 케이스 2: 잘못된 입력 데이터 (contest_type 유효하지 않음)
+@moto.mock_aws  # moto로 AWS S3 모킹
+def test_request_endpoint_invalid_input():
+    # moto S3 설정: 가짜 버킷과 파일 생성
+    s3 = boto3.client("s3")
+    s3.create_bucket(Bucket=settings.s3_bucket_name)
+    s3.put_object(Bucket=settings.s3_bucket_name, Key="user-uploads/test/plan.pdf", Body="fake pdf content")
+
+    # 모킹: Gemini 관련 호출 (입력 검증 실패 전에 도달하지 않음)
+    with patch("app.routers.evaluation.genai.configure") as mock_configure:
+        mock_configure.return_value = None  # mock_configure 사용 (F841 방지)
+
+        # 동기 클라이언트로 API 호출 (잘못된 contest_type)
+        response = client.post(
+            "/api/v1/analysis/request",
+            json={
+                "s3_key": "user-uploads/test/plan.pdf",
+                "contest_type": "invalid_type",  # 유효하지 않은 타입 (엔드포인트에서 검증 가정)
+                "json_model": "gemini-1.5-flash",
+                "timeout_sec": 600
+            }
+        )
+        logging.debug(f"Response status: {response.status_code}, content: {response.text}")  # 디버깅 로그 출력
+
+        # 응답 검증 (400 예상, 입력 유효성 검사 실패)
+        assert response.status_code == 422, f"Unexpected status code: {response.status_code}, details: {response.text}"
+
