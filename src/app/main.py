@@ -15,6 +15,7 @@ from typing import Iterable, Tuple, List, Dict, Any
 from fastapi import FastAPI, APIRouter, Request, Response
 from mangum import Mangum
 import app.routers as routers_package
+from .health import health_router
 from app.core.config import settings, OtherSettings
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -86,13 +87,11 @@ def include_routers_recursive(
                 tag = prefix.strip("/").split("/")[-1] or "root"
                 app.include_router(attr, prefix=prefix, tags=[tag])
 
-
 app = FastAPI(
     title="BizLenz API (REST + Cognito User Pools)",
     description="Cognito User Pool Authorizer로 보호되는 REST API. Lambda(FastAPI+Mangum).",
     version="1.0.0",
 )
-
 
 ALLOWED_ORIGINS = OtherSettings.ALLOWED_ORIGINS
 
@@ -121,8 +120,8 @@ else:
     )
 
 include_routers_recursive(app, routers_package, "app.routers")
+app.include_router(health_router)
 logger = logging.getLogger("bizlenz.auth")  # 인증/인가 영역 전용 로거
-
 
 # REST API(v1)용: requestContext.authorizer.claims 경로 사용
 @app.middleware("http")

@@ -34,7 +34,9 @@ FAKE_EVALUATION_CRITERIA = EVALUATION_CRITERIA
 def test_request_endpoint():  # 동기 def로 유지
     # moto S3 설정: 가짜 버킷 생성 및 파일 업로드 (실제 S3 호출 대신, 404 오류 방지)
     s3 = boto3.client("s3")
-    s3.create_bucket(Bucket=settings.s3_bucket_name)  # settings에서 S3 버킷 이름 가져옴 (로그에 맞춤)
+    s3.create_bucket(Bucket=settings.s3_bucket_name, CreateBucketConfiguration={
+        'LocationConstraint': 'ap-northeast-2'
+    })  # settings에서 S3 버킷 이름 가져옴 (로그에 맞춤)
     s3.put_object(Bucket=settings.s3_bucket_name, Key="user-uploads/test/plan.pdf", Body="fake pdf content")  # 가짜 PDF 파일 업로드 모킹
 
     # 모킹: Gemini API 구성 (genai.configure 호출 모킹)
