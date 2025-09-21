@@ -28,11 +28,20 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
-# 🔧 수정된 부분: 기본값과 검증 추가
 def get_database_url() -> tuple[str, dict]:
     """환경변수로부터 DATABASE_URL을 생성하고 검증합니다."""
-
-    # 기본값과 함께 환경변수 읽기
+    
+    # Docker 테스트 환경 체크
+    if os.getenv("TESTING") == "docker":
+        return "postgresql://test_user:test123@localhost:5433/bizlenz_test", {
+            "type": "postgresql", "host": "localhost", "port": "5433", "db": "bizlenz_test"
+        }
+    
+    # SQLite 테스트 환경
+    if os.getenv("TESTING") == "true":
+        return "sqlite:///:memory:", {"type": "sqlite", "location": "memory"}
+    
+    # 기존 PostgreSQL 로직
     db_user = os.getenv("DB_USER", "postgres")
     db_pass = os.getenv("DB_PASSWORD", "")
     db_host = os.getenv("DB_HOST", "localhost")
@@ -58,9 +67,15 @@ def get_database_url() -> tuple[str, dict]:
 try:
     DATABASE_URL, db_info = get_database_url()
     config.set_main_option("sqlalchemy.url", DATABASE_URL)
-    print(
-        f"데이터베이스 연결 설정 완료: {db_info['user']}@{db_info['host']}:{db_info['port']}/{db_info['name']}"
-    )
+    
+    if os.getenv("TESTING") == "docker":
+        print(f"Docker 테스트 환경: PostgreSQL {db_info['host']}:{db_info['port']}/{db_info['db']}")
+    elif os.getenv("TESTING") == "true":
+        print("테스트 환경: SQLite 메모리 DB 사용")
+    else:
+        print(
+            f"데이터베이스 연결 설정 완료: {db_info['user']}@{db_info['host']}:{db_info['port']}/{db_info['name']}"
+        )
 except ValueError as e:
     print(f"환경변수 설정 오류: {e}")
     print(".env 파일을 확인하고 필수 환경변수를 설정해주세요.")
