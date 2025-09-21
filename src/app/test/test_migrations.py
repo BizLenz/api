@@ -9,6 +9,7 @@ from alembic.config import Config
 from alembic import command
 
 
+
 class TestMigrations:
     """마이그레이션 기본 테스트"""
 
@@ -39,7 +40,7 @@ class TestMigrations:
             inspector = inspect(temp_engine)
             tables = inspector.get_table_names()
 
-            expected_tables = {"users", "business_plans", "analyses"}
+            expected_tables = {"users", "business_plans", "analysis_jobs"}  # analyses -> analysis_jobs
             assert expected_tables.issubset(tables), (
                 f"Expected tables not created: {expected_tables}"
             )
@@ -52,7 +53,7 @@ class TestMigrations:
             command.upgrade(alembic_config, "head")
 
             inspector = inspect(temp_engine)
-            columns = inspector.get_columns("analyses")
+            columns = inspector.get_columns("analysis_jobs")  # analyses -> analysis_jobs
             column_names = {col["name"] for col in columns}
 
             # 핵심 Gemini 필드들만 확인
