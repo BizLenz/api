@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
 from botocore.exceptions import ClientError
-from src.main import app  # main.py에서 FastAPI 앱을 import (프로젝트 구조에 맞게 조정)
+from app.main import app  # main.py에서 FastAPI 앱을 import (프로젝트 구조에 맞게 조정)
 
 # TestClient 초기화: FastAPI 앱을 테스트 모드로 로드
 client = TestClient(app)
