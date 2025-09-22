@@ -20,6 +20,7 @@ from app.schemas.evaluation import (
 )
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
+from app.core.security import require_scope
 from app.prompts.yeobi_startup import (
     SYSTEM_PROMPT,
     SECTION_ANALYSIS_PROMPT_TEMPLATE,
@@ -37,6 +38,7 @@ router = APIRouter(dependencies=[Depends(require_scope("openid"))])
 
 # AWS S3 클라이언트 초기화: settings에서 region과 bucket 이름을 불러옴
 _s3 = boto3.client("s3", region_name=settings.aws_region)
+
 
 # 섹션 분석 함수: Gemini AI를 사용해 사업계획서 섹션을 분석
 # uploaded_doc_file: Gemini에 업로드된 파일 객체
