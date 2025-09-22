@@ -20,7 +20,7 @@ from app.schemas.evaluation import (
 )
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
-from app.prompts.pre_startup import (
+from app.prompts.yeobi_startup import (
     SYSTEM_PROMPT,
     SECTION_ANALYSIS_PROMPT_TEMPLATE,
     FINAL_REPORT_PROMPT,
