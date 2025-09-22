@@ -23,7 +23,4 @@ python-jose[cryptography]
 
 # Testing
 pytest
-pytest-asyncio>=0.21.0
-httpx
-pytest-mock
-moto[all]>=5.0.0
+requests

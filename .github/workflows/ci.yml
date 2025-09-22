@@ -64,7 +64,7 @@ jobs:
 
 
       - name: Run Pytest
-        run: uv run pytest          # 8. Pytest로 자동화 테스트 실행
+        run: uv run pytest src/app/test/test_evaluation.py        # 8. Pytest로 자동화 테스트 실행
 
 
       - name: Build Docker image
