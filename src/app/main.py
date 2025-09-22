@@ -15,6 +15,7 @@ from typing import Iterable, Tuple, List, Dict, Any
 from fastapi import FastAPI, APIRouter, Request, Response
 from mangum import Mangum
 import app.routers as routers_package
+from .health import health_router
 from app.core.config import settings, OtherSettings
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -93,7 +94,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
 ALLOWED_ORIGINS = OtherSettings.ALLOWED_ORIGINS
 
 app.add_middleware(
@@ -121,6 +121,7 @@ else:
     )
 
 include_routers_recursive(app, routers_package, "app.routers")
+app.include_router(health_router)
 logger = logging.getLogger("bizlenz.auth")  # 인증/인가 영역 전용 로거
 
 
