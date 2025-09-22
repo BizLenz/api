@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Literal
+from typing import Literal, ClassVar
+
 
 class Settings(BaseSettings):
     """
@@ -60,18 +61,22 @@ class Settings(BaseSettings):
     s3_upload_folder: str = Field(default="uploads", env="S3_UPLOAD_FOLDER")
     s3_processed_folder: str = Field(default="processed", env="S3_PROCESSED_FOLDER")
     s3_temp_folder: str = Field(default="temp", env="S3_TEMP_FOLDER")
-    s3_max_file_size: int = Field(default=50 * 1024 * 1024, env="S3_MAX_FILE_SIZE")  # 50MB
-    
-    # S3 Pre-signed URL 설정
-    presigned_url_expiration: int = Field(3600, env="PRESIGNED_URL_EXPIRATION")  # 1시간
-    presigned_url_method: Literal["GET", "PUT", "POST"] = Field("GET", env="PRESIGNED_URL_METHOD")
-    
-    # 🔧 수정: Config 클래스 (Pydantic 오류 해결)
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False  # 🔧 변경: 대소문자 구분 안함
-        extra = "ignore"        # 🔧 추가: 추가 필드 무시 (ValidationError 방지)
+    s3_max_file_size: int = Field(
+        default=50 * 1024 * 1024, env="S3_MAX_FILE_SIZE"
+    )  # 50MB
+
+    # S3 Pre-signed URL
+    presigned_url_expiration: int = Field(3600, env="PRESIGNED_URL_EXPIRATION")  # 1h
+    presigned_url_method: Literal["GET", "PUT", "POST"] = Field(
+        "GET", env="PRESIGNED_URL_METHOD"
+    )
+
+    # Cognito
+    cognito_region: str = Field(default="ap-northeast-2", env="COGNITO_REGION")
+    cognito_user_pool_id: str | None = Field(default=None, env="COGNITO_USER_POOL_ID")
+    cognito_client_id: str | None = Field(default=None, env="COGNITO_CLIENT_ID")
+    cognito_client_secret: str | None = Field(default=None, env="COGNITO_CLIENT_SECRET")
+
 
 class OtherSettings(BaseSettings):
     """
