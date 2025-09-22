@@ -9,6 +9,89 @@ Parameters:
   CognitoUserPoolArn:
     Type: String
     Description: ARN of existing Cognito User Pool (e.g., arn:aws:cognito-idp:ap-northeast-2:123456789012:userpool/ap-northeast-2_ABCdef123)
+  S3BucketName:
+    Type: String
+    Description: S3 bucket name for original files
+=======
+
+
+
+Globals:
+  Function:
+    Runtime: python3.12
+=======
+    Runtime: python3.11
+    Timeout: 10
+    MemorySize: 512
+    Architectures: [x86_64]
+    Environment:
+      Variables:
+        STAGE: dev
+        GOOGLE_API_KEY: your-GOOGLE_API_KEY
+        GEMINI_MODEL_ANALYSIS: gemini-1.5-flash
+=======
+
+Resources:
+  RestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      # REST API CORS: 프리플라이트를 API Gateway에서 처리, 실제 응답 헤더는 Lambda에서 추가 권장
+      Auth:
+        DefaultAuthorizer: CognitoPoolAuth
+        Authorizers:
+          CognitoPoolAuth:
+            UserPoolArn: !Ref CognitoUserPoolArn
+            # Identity 헤더 이름 지정 가능(기본 Authorization)
+            Identity:
+              Header: Authorization
+
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: bizlenz-fastapi-rest-proxy
+      CodeUri: src/
+      Handler: app.main.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - S3ReadPolicy:
+                  BucketName: bizlenz-original-files-bucket-dev
+        - AmazonRDSFullAccess
+=======
+      CodeUri: .
+      Handler: main.handler
+      Policies:
+        - AWSLambdaBasicExecutionRole
+      Events:
+        RootProxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /
+            Method: ANY
+        GreedyProxy:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RestApi
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  ApiEndpoint:
+    Description: REST API endpoint base URL
+    Value: !Sub "https://${RestApi}.execute-api.${AWS::Region}.amazonaws.com/v1"
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: BizLenz - REST API (v1) with Cognito User Pools Authorizer + FastAPI (Mangum)
+
+Parameters:
+  CognitoRegion:
+    Type: String
+    Default: ap-northeast-2
+  CognitoUserPoolArn:
+    Type: String
+    Description: ARN of existing Cognito User Pool (e.g., arn:aws:cognito-idp:ap-northeast-2:123456789012:userpool/ap-northeast-2_ABCdef123)
 
 
 Globals:
