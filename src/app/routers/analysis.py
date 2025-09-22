@@ -44,7 +44,9 @@ def get_industry_data(
         .all()
     )
     if not results:
-        raise HTTPException(status_code=404, detail="Industry/market analysis not found")
+        raise HTTPException(
+            status_code=404, detail="Industry/market analysis not found"
+        )
 
     industry_trends, market_conditions = None, None
     sources = []
@@ -68,7 +70,7 @@ def get_industry_data(
     }
 
 
-# 유저가 분석 기록 삭제 요청 
+# 유저가 분석 기록 삭제 요청
 @analysis.post("/records/{action}")
 def manage_analysis_record(
     action: str,
@@ -115,13 +117,9 @@ def manage_analysis_record(
         except Exception as e:
             db.rollback()
             raise HTTPException(
-                status_code=500, 
-                detail=f"Error deleting analysis record: {str(e)}"
+                status_code=500, detail=f"Error deleting analysis record: {str(e)}"
             )
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
 
     return {"status": "success", "message": message}
-
-
-

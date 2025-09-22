@@ -11,8 +11,11 @@ class AnalysisCreateIn(BaseModel):
     json_model: str = Field(default="gemini-2.5-flash")
     timeout_sec: int = Field(default=120, ge=10, le=600)
 
+
 class AnalysisResponse(BaseModel):
-    report_json: str = Field(..., description="Gemini가 생성한 최종 평가 보고서(JSON 문자열)")
+    report_json: str = Field(
+        ..., description="Gemini가 생성한 최종 평가 보고서(JSON 문자열)"
+    )
     sections_analyzed: int = Field(..., ge=0)
     contest_type: str = Field(...)
 
@@ -20,13 +23,14 @@ class AnalysisResponse(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
-                    "report_json": "{\"title\": \"예비창업패키지 사업계획서 최종 평가 보고서\", ...}",
+                    "report_json": '{"title": "예비창업패키지 사업계획서 최종 평가 보고서", ...}',
                     "sections_analyzed": 6,
                     "contest_type": "예비창업패키지",
                 }
             ]
         }
     }
+
 
 class AnalysisResultCreateIn(BaseModel):
     analysis_job_id: int = Field(..., description="연결할 분석 작업 ID")
@@ -49,6 +53,7 @@ class AnalysisResultCreateIn(BaseModel):
         if v < 0 or v > 100:
             raise ValueError("score must be between 0 and 100")
         return v
+
 
 class AnalysisResultOut(BaseModel):
     id: int
