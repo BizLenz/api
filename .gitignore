@@ -298,5 +298,5 @@ src/.env
 .aws-sam/
 
 # prompts
-prompts/*
+prompts/
 !prompts/example/*
