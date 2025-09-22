@@ -296,3 +296,7 @@ src/.env
 
 # aws-sam
 .aws-sam/
+
+# prompts
+prompts/*
+!prompts/example/*
