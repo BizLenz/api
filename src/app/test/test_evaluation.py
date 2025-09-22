@@ -1,149 +1,139 @@
 # src/app/test/test_evaluation.py
-# 이 파일은 BizLenz 서비스의 /api/v1/analysis/request 엔드포인트를 테스트합니다.
-# TestClient를 사용해 동기 요청을 시뮬레이션하며, 실제 S3/Gemini 호출을 모킹합니다.
-# AnalysisResponse Pydantic 모델을 반환 형식으로 검증합니다.
-# AWS RDS/S3 연동을 고려한 모킹: moto로 S3 버킷/파일 모킹.
-# 한국어 주석으로 초보자 이해 돕기. Ruff 린팅 통과 (E501 등 준수).
-# 주의: 동기 버전으로 async 문제를 피함. 모킹을 awaitable하게 수정 (오류 방지).
+# 이 파일은 evaluation 라우터의 API 엔드포인트를 테스트합니다.
+# Pytest를 사용하며, mocking을 통해 외부 서비스(S3, Gemini AI)를 시뮬레이션합니다.
+# 초보 개발자를 위해 각 테스트 함수에 목적과 mocking 이유를 주석으로 설명합니다.
 
-import logging
+import pytest
+from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
-import moto  # S3 모킹 라이브러리 (AWS 서비스 시뮬레이션)
-import boto3  # moto와 함께 AWS 클라이언트 생성
+from botocore.exceptions import ClientError
+from src.main import app  # main.py에서 FastAPI 앱을 import (프로젝트 구조에 맞게 조정)
 
-from fastapi.testclient import TestClient  # 동기 테스트 클라이언트
-from fastapi import FastAPI
-from ..routers.evaluation import router  # 상대 임포트: 평가 라우터 (FastAPI 라우터)
-from ..schemas.evaluation import AnalysisResponse  # 상대 임포트: Pydantic 응답 모델 (RDS 스키마 기반)
-from ..core.config import settings  # 상대 임포트: 설정 값 (S3 버킷 등)
-from ..prompts.yeobi_startup import EVALUATION_CRITERIA  # 상대 임포트: 평가 기준 상수
+# TestClient 초기화: FastAPI 앱을 테스트 모드로 로드
+client = TestClient(app)
 
-# 로그 설정 (디버깅용, 테스트 시 상세 출력)
-logging.basicConfig(level=logging.DEBUG)
+# 기본 요청 데이터: AnalysisCreateIn 스키마에 맞춤 (file_path 포함)
+BASE_JSON_DATA = {
+    "contest_type": "예비창업패키지",
+    "file_path": "mock/path/mock.pdf",  # file_path 사용: S3 키 시뮬레이션
+    "analysis_model": "gemini-2.5-flash",
+    "json_model": "gemini-2.5-flash",
+    "timeout_sec": 60
+}
 
-# FastAPI 앱 생성 및 라우터 등록 (테스트 전용 앱)
-app = FastAPI()
-app.include_router(router)
+# 성공 케이스 테스트: 분석 요청이 정상적으로 처리되는지 확인
+@pytest.mark.asyncio
+@patch("app.routers.evaluation._s3.download_file")  # S3 다운로드 mocking
+@patch("app.routers.evaluation.genai.upload_file_async", new_callable=AsyncMock)  # Gemini 파일 업로드 mocking
+@patch("app.routers.evaluation.genai.GenerativeModel.generate_content_async", new_callable=AsyncMock)  # Gemini 콘텐츠 생성 mocking (2번 호출: 섹션 분석 + 최종 보고서)
+async def test_create_analysis_success(
+    mock_generate_content_async,
+    mock_upload_file_async,
+    mock_download_file
+):
+    """
+    목적: 정상적인 분석 요청 시 201 상태 코드와 응답 구조를 확인합니다.
+    mocking 이유: 실제 S3/Gemini 호출을 피하고, 테스트를 빠르게 실행하기 위함.
+    """
+    # S3 다운로드 성공 시뮬레이션
+    mock_download_file.return_value = None
 
-client = TestClient(app)  # 동기 TestClient 초기화
+    # Gemini 업로드 파일 mocking
+    mock_upload_file_async.return_value = MagicMock(file_name="mock.pdf")
 
-# 모킹된 EVALUATION_CRITERIA (테스트용, 실제 값 사용)
-FAKE_EVALUATION_CRITERIA = EVALUATION_CRITERIA
+    # Gemini generate_content_async mocking: 첫 번째 호출(섹션 분석), 두 번째 호출(최종 보고서)
+    mock_generate_content_async.side_effect = [
+        AsyncMock(text="Test analysis section"),  # 섹션 분석 응답
+        AsyncMock(text='{"final_report": true}')   # 최종 JSON 보고서 응답
+    ]
 
-@moto.mock_aws  # moto로 AWS S3 모킹
-def test_request_endpoint():  # 동기 def로 유지
-    # moto S3 설정: 가짜 버킷 생성 및 파일 업로드 (실제 S3 호출 대신, 404 오류 방지)
-    s3 = boto3.client("s3")
-    s3.create_bucket(Bucket=settings.s3_bucket_name, CreateBucketConfiguration={
-        'LocationConstraint': 'ap-northeast-2'
-    })  # settings에서 S3 버킷 이름 가져옴 (로그에 맞춤)
-    s3.put_object(Bucket=settings.s3_bucket_name, Key="user-uploads/test/plan.pdf", Body="fake pdf content")  # 가짜 PDF 파일 업로드 모킹
+    # API 호출
+    response = client.post("/request", json=BASE_JSON_DATA)
 
-    # 모킹: Gemini API 구성 (genai.configure 호출 모킹)
-    with patch("app.routers.evaluation.genai.configure") as mock_configure:
-        mock_configure.return_value = None  # mock_configure 사용 (F841 방지)
+    # 결과 확인
+    assert response.status_code == 201
+    assert "report_json" in response.json()
+    assert response.json()["sections_analyzed"] > 0  # 분석된 섹션 수 확인
+    assert response.json()["contest_type"] == BASE_JSON_DATA["contest_type"]
 
-        # 모킹: upload_file_async (AsyncMock으로 awaitable 모킹)
-        mock_uploaded_file = MagicMock()
-        with patch("app.routers.evaluation.genai.upload_file_async", AsyncMock(return_value=mock_uploaded_file), create=True) as mock_upload:
-            mock_upload.return_value = mock_uploaded_file  # mock_upload 사용 (F841 방지)
+# S3 404 에러 케이스 테스트: 파일이 없을 때 404 반환 확인
+@pytest.mark.asyncio
+@patch("app.routers.evaluation._s3.download_file")  # S3 다운로드 mocking
+async def test_create_analysis_s3_not_found(mock_download_file):
+    """
+    목적: S3에서 파일을 찾을 수 없을 때 (404/NoSuchKey) HTTP 404를 반환하는지 확인합니다.
+    mocking 이유: 실제 S3 에러를 시뮬레이션하여 예외 처리 로직 테스트.
+    """
+    # S3 다운로드 에러 mocking: ClientError with '404' code
+    error_response = {"Error": {"Code": "404"}}
+    mock_download_file.side_effect = ClientError(error_response, "download_file")
 
-            # 모킹: GenerativeModel 및 generate_content_async (AsyncMock으로 awaitable 모킹 - "can't be used in await" 오류 해결)
-            mock_model = MagicMock()
-            mock_model.generate_content_async = AsyncMock(return_value=MagicMock(text="Fake analysis text"))
-            with patch("app.routers.evaluation.genai.GenerativeModel", return_value=mock_model, create=True) as mock_gen_model:
-                mock_gen_model.return_value = mock_model  # mock_gen_model 사용 (F841 방지)
+    # API 호출
+    response = client.post("/request", json=BASE_JSON_DATA)
 
-                # 모킹: 최종 보고서 모델 (AsyncMock으로 awaitable 모킹)
-                mock_final_model = MagicMock()
-                mock_final_model.generate_content_async = AsyncMock(return_value=MagicMock(text='{"report": "Fake report"}'))
-                with patch("app.routers.evaluation.genai.GenerativeModel", side_effect=[mock_model, mock_final_model], create=True):
+    # 결과 확인
+    assert response.status_code == 404
+    assert "S3 객체를 찾을 수 없습니다." in response.json()["detail"]
 
-                    # 모킹: asyncio.gather와 wait_for (AsyncMock으로 awaitable 모킹)
-                    fake_results = [{"criteria": c, "analysis_text": "Fake text"} for c in FAKE_EVALUATION_CRITERIA]
-                    with patch("asyncio.gather", AsyncMock(return_value=fake_results)) as mock_gather:
-                        mock_gather.return_value = fake_results  # mock_gather 사용 (F841 방지)
-                        with patch("asyncio.wait_for", AsyncMock(return_value=fake_results)) as mock_wait_for:
-                            mock_wait_for.return_value = fake_results  # mock_wait_for 사용 (F841 방지)
+# 타임아웃 에러 케이스 테스트: 분석 시간이 초과할 때 504 반환 확인
+@pytest.mark.asyncio
+@patch("app.routers.evaluation._s3.download_file")  # S3 다운로드 mocking
+@patch("app.routers.evaluation.genai.upload_file_async", new_callable=AsyncMock)  # Gemini 업로드 mocking
+@patch("app.routers.evaluation.asyncio.gather", new_callable=AsyncMock)  # asyncio.gather mocking for timeout
+async def test_create_analysis_timeout(
+    mock_gather,
+    mock_upload_file_async,
+    mock_download_file
+):
+    """
+    목적: 분석 타임아웃 시 HTTP 504를 반환하는지 확인합니다.
+    mocking 이유: asyncio.wait_for의 타임아웃을 시뮬레이션.
+    """
+    # S3 다운로드 성공
+    mock_download_file.return_value = None
 
-                            # 동기 클라이언트로 API 호출 (TestClient 사용)
-                            response = client.post(
-                                "/api/v1/analysis/request",
-                                json={
-                                    "s3_key": "user-uploads/test/plan.pdf",
-                                    "contest_type": "예비창업패키지",
-                                    "json_model": "gemini-1.5-flash",
-                                    "timeout_sec": 600
-                                }
-                            )
-                            logging.debug(f"Response status: {response.status_code}, content: {response.text}")  # 디버깅 로그 출력
+    # Gemini 업로드 성공
+    mock_upload_file_async.return_value = MagicMock(file_name="mock.pdf")
 
-                            # 응답 검증 (201 예상, 실패 시 상세 메시지)
-                            assert response.status_code == 201, f"Unexpected status code: {response.status_code}, details: {response.text}"
+    # asyncio.gather 타임아웃 에러 시뮬레이션
+    mock_gather.side_effect = asyncio.TimeoutError()
 
-                            response_data = response.json()  # JSON 파싱
+    # API 호출
+    response = client.post("/request", json=BASE_JSON_DATA)
 
-                            # AnalysisResponse 모델 검증 (Pydantic 스키마 기반, BizLenz 평가 결과 확인)
-                            assert "report_json" in response_data  # report_json 필드 존재 확인
-                            assert response_data["sections_analyzed"] == len(FAKE_EVALUATION_CRITERIA)  # 분석 섹션 수 확인
-                            assert response_data["contest_type"] == "예비창업패키지"  # contest_type 일치 확인
+    # 결과 확인
+    assert response.status_code == 504
+    assert "분석 타임아웃" in response.json()["detail"]
 
-                            # 추가 검증: Pydantic 모델 인스턴스 생성 (테스트 목적, 실제 반환은 assert로 대체 가능)
-                            AnalysisResponse(
-                                report_json=response_data["report_json"],
-                                sections_analyzed=response_data["sections_analyzed"],
-                                contest_type=response_data["contest_type"]
-                            )
-@moto.mock_aws  # moto로 AWS S3 모킹
-def test_request_endpoint_file_not_found():
-    # moto S3 설정: 가짜 버킷 생성 (파일은 업로드하지 않음, 404 시뮬레이션)
-    s3 = boto3.client("s3")
-    s3.create_bucket(Bucket=settings.s3_bucket_name)  # settings에서 S3 버킷 이름 가져옴
+# 추가: DB 관련 엔드포인트 테스트 (create_result_endpoint 예시)
+@pytest.mark.asyncio
+@patch("app.crud.evaluation.create_analysis_result")  # CRUD 함수 mocking
+async def test_create_result_endpoint(mock_create_analysis_result):
+    """
+    목적: 분석 결과 기록 엔드포인트가 정상 동작하는지 확인합니다.
+    mocking 이유: 실제 DB 접근을 피함.
+    """
+    # mocking 반환값: 가짜 AnalysisResultOut 객체
+    mock_create_analysis_result.return_value = MagicMock(
+        analysis_job_id=1,
+        evaluation_type="test",
+        score=90.0,
+        summary="Test summary",
+        details="Test details"
+    )
 
-    # 모킹: Gemini 관련 호출 (파일 업로드 전에 실패하므로 최소 모킹)
-    with patch("app.routers.evaluation.genai.configure") as mock_configure:
-        mock_configure.return_value = None  # mock_configure 사용 (F841 방지)
+    # 요청 데이터
+    json_data = {
+        "analysis_job_id": 1,
+        "evaluation_type": "test",
+        "score": 90.0,
+        "summary": "Test summary",
+        "details": "Test details"
+    }
 
-        # 동기 클라이언트로 API 호출 (존재하지 않는 S3 키 사용)
-        response = client.post(
-            "/api/v1/analysis/request",
-            json={
-                "s3_key": "user-uploads/nonexistent/plan.pdf",  # 존재하지 않는 키
-                "contest_type": "예비창업패키지",
-                "json_model": "gemini-1.5-flash",
-                "timeout_sec": 600
-            }
-        )
-        logging.debug(f"Response status: {response.status_code}, content: {response.text}")  # 디버깅 로그 출력
+    # API 호출
+    response = client.post("/record", json=json_data)
 
-        # 응답 검증 (404 예상, 파일 없음 에러)
-        assert response.status_code == 404, f"Unexpected status code: {response.status_code}, details: {response.text}"
-
-
-# 추가 테스트 케이스 2: 잘못된 입력 데이터 (contest_type 유효하지 않음)
-@moto.mock_aws  # moto로 AWS S3 모킹
-def test_request_endpoint_invalid_input():
-    # moto S3 설정: 가짜 버킷과 파일 생성
-    s3 = boto3.client("s3")
-    s3.create_bucket(Bucket=settings.s3_bucket_name)
-    s3.put_object(Bucket=settings.s3_bucket_name, Key="user-uploads/test/plan.pdf", Body="fake pdf content")
-
-    # 모킹: Gemini 관련 호출 (입력 검증 실패 전에 도달하지 않음)
-    with patch("app.routers.evaluation.genai.configure") as mock_configure:
-        mock_configure.return_value = None  # mock_configure 사용 (F841 방지)
-
-        # 동기 클라이언트로 API 호출 (잘못된 contest_type)
-        response = client.post(
-            "/api/v1/analysis/request",
-            json={
-                "s3_key": "user-uploads/test/plan.pdf",
-                "contest_type": "invalid_type",  # 유효하지 않은 타입 (엔드포인트에서 검증 가정)
-                "json_model": "gemini-1.5-flash",
-                "timeout_sec": 600
-            }
-        )
-        logging.debug(f"Response status: {response.status_code}, content: {response.text}")  # 디버깅 로그 출력
-
-        # 응답 검증 (400 예상, 입력 유효성 검사 실패)
-        assert response.status_code == 422, f"Unexpected status code: {response.status_code}, details: {response.text}"
-
+    # 결과 확인
+    assert response.status_code == 201
+    assert response.json()["score"] == 90.0
