@@ -3,20 +3,21 @@
 # 이 파일은 사업계획서 분석 API 엔드포인트를 정의합니다.
 # FastAPI 라우터를 사용하며, AWS S3에서 파일을 다운로드하고 Gemini AI로 분석합니다.
 # JWT 인증은 Cognito Authorizer를 통해 처리되며, dependencies로 openid 스코프를 요구합니다.
+# 수정: /request에서 분석 후 DB 저장을 통합하여 /record API를 불필요하게 함.
 
 from __future__ import annotations
 import asyncio
 import pathlib
 import tempfile
 import boto3
+import json  # report_json 파싱을 위한 라이브러리 (기본 내장)
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.evaluation import (
     AnalysisCreateIn,
     AnalysisResponse,
-    AnalysisResultCreateIn,
-    AnalysisResultOut,
+    AnalysisResultOut,  # 반환 모델로 사용 (result_id 포함)
 )
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
@@ -39,12 +40,12 @@ router = APIRouter(dependencies=[Depends(require_scope("openid"))])
 # AWS S3 클라이언트 초기화: settings에서 region과 bucket 이름을 불러옴
 _s3 = boto3.client("s3", region_name=settings.aws_region)
 
-
 # 섹션 분석 함수: Gemini AI를 사용해 사업계획서 섹션을 분석
 # uploaded_doc_file: Gemini에 업로드된 파일 객체
 # criteria: 분석 기준 딕셔너리
 async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dict:
     # 섹션별 프롬프트 구성 (pillars_description과 pillar_scoring_format 생성)
+    # 이 부분은 사업계획서의 각 섹션을 평가 기준에 따라 분석 프롬프트를 만듭니다.
     pillars_description = []
     pillar_scoring_format = []
     for pillar_name, pillar_data in criteria["pillars"].items():
@@ -62,7 +63,7 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
             f"  - **근거:** [점수 부여에 대한 구체적인 이유]"
         )
 
-    # 프롬프트 템플릿 적용
+    # 프롬프트 템플릿 적용: 분석 기준을 바탕으로 Gemini에 전달할 프롬프트를 생성합니다.
     prompt = SECTION_ANALYSIS_PROMPT_TEMPLATE.format(
         section_name=criteria["section_name"],
         max_score=criteria["max_score"],
@@ -70,7 +71,7 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
         pillar_scoring_format="\n".join(pillar_scoring_format),
     )
 
-    # Gemini 모델 초기화 및 콘텐츠 생성 (비동기 호출)
+    # Gemini 모델 초기화 및 콘텐츠 생성 (비동기 호출): settings에서 모델 이름을 불러와 사용합니다.
     model = genai.GenerativeModel(
         model_name=settings.gemini_model_analysis, system_instruction=SYSTEM_PROMPT
     )
@@ -80,7 +81,7 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
         generation_config=types.GenerationConfig(temperature=0.0),
     )
 
-    # 응답 텍스트 추출 (실패 시 기본 텍스트 반환)
+    # 응답 텍스트 추출 (실패 시 기본 텍스트 반환): AI 응답이 실패하면 기본 에러 메시지를 반환합니다.
     text = getattr(
         resp,
         "text",
@@ -88,11 +89,11 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
     )
     return {"criteria": criteria, "analysis_text": text}
 
-# 분석 요청 엔드포인트: 사업계획서 PDF를 S3에서 다운로드하고 분석
+# 분석 요청 엔드포인트: 사업계획서 PDF를 S3에서 다운로드하고 분석 후 DB에 저장
 @router.post(
-    "/request", response_model=AnalysisResponse, status_code=status.HTTP_201_CREATED
+    "/request", response_model=AnalysisResultOut, status_code=status.HTTP_201_CREATED  # 반환 모델을 AnalysisResultOut으로 변경 (DB 저장 결과 포함)
 )
-async def create_analysis(req: AnalysisCreateIn):
+async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):  # DB 세션 추가: Depends(get_db)로 SQLAlchemy 세션을 주입합니다.
     try:
         # 임시 디렉토리 생성: 파일 다운로드 후 자동 삭제
         with tempfile.TemporaryDirectory() as td:
@@ -112,14 +113,13 @@ async def create_analysis(req: AnalysisCreateIn):
                 # 다른 에러(예: 권한 문제)에 대한 핸들링 추가 (추천: 로그 기록)
                 raise HTTPException(status_code=500, detail=f"S3 다운로드 오류: {error_code} - {e}")
 
-            # Gemini 클라이언트 설정 및 파일 업로드
+            # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             genai.configure(api_key=settings.google_api_key)
             uploaded_doc_file = await genai.upload_file_async(
                 path=str(local_path), display_name=filename
             )
 
-
-            # 섹션 병렬 분석: asyncio.gather로 동시에 실행
+            # 섹션 병렬 분석: asyncio.gather로 동시에 실행하여 효율성을 높입니다.
             tasks = [
                 _analyze_section(uploaded_doc_file, c) for c in EVALUATION_CRITERIA
             ]
@@ -149,44 +149,36 @@ async def create_analysis(req: AnalysisCreateIn):
             )
             report_json = getattr(final_resp, "text", "{}")
 
+        # 수정된 부분: 분석 결과(report_json)를 파싱하여 DB에 저장
+        # report_json을 딕셔너리로 변환 (파싱 실패 시 기본값 설정)
+        try:
+            report_data = json.loads(report_json)
+            score = report_data.get("score")  # report_json에 score 필드가 있다고 가정
+            summary = report_data.get("summary", "")  # 요약 필드
+            details = report_data.get("details", {})  # 상세 내용 (JSON으로 저장 가능)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail="보고서 JSON 파싱 오류")
+
+        # DB 저장: create_analysis_result 호출 (analysis_job_id는 요청에서 생성하거나 임시로 설정, 여기서는 예시로 'req.contest_type'을 사용)
+        # 주의: 실제로 analysis_job_id는 유니크하게 생성해야 합니다. (예: UUID 사용 추천)
+        saved_result = create_analysis_result(
+            db,
+            analysis_job_id=f"{req.contest_type}_job_{int(asyncio.get_event_loop().time())}",  # 임시 job_id 생성 예시
+            evaluation_type=req.contest_type,
+            score=score if score is not None else None,
+            summary=summary,
+            details=json.dumps(details),  # details를 JSON 문자열로 저장
+        )
+
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="분석 타임아웃")
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"분석 중 오류: {e}")
 
-    # 분석 응답 반환
-    return AnalysisResponse(
-        report_json=report_json,
-        sections_analyzed=len(EVALUATION_CRITERIA),
-        contest_type=req.contest_type,
-    )
+    # 저장된 결과 반환: AnalysisResultOut 모델로 반환 (result_id 포함)
+    return saved_result
 
-# --- 아래의 DB 관련 엔드포인트들은 그대로 유지합니다 ---
-# 분석 결과 기록 엔드포인트: DB에 결과 저장
-@router.post(
-    "/record",
-    response_model=AnalysisResultOut,
-    status_code=status.HTTP_201_CREATED,
-    summary="분석 결과 기록",
-    description="분석 결과를 DB에 기록합니다.",
-)
-def create_result_endpoint(
-    payload: AnalysisResultCreateIn, db: Session = Depends(get_db)
-):
-    try:
-        obj = create_analysis_result(
-            db,
-            analysis_job_id=payload.analysis_job_id,
-            evaluation_type=payload.evaluation_type,
-            score=float(payload.score) if payload.score is not None else None,
-            summary=payload.summary,
-            details=payload.details,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"DB 기록 중 오류: {e}")
-    return obj
-
-# 분석 결과 조회 엔드포인트: result_id로 조회
+# 분석 결과 조회 엔드포인트: result_id로 조회 (기존 유지)
 @router.get(
     "/results/{result_id}",
     response_model=AnalysisResultOut,

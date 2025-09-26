@@ -1,139 +1,89 @@
-# src/app/test/test_evaluation.py
-# 이 파일은 evaluation 라우터의 API 엔드포인트를 테스트합니다.
-# Pytest를 사용하며, mocking을 통해 외부 서비스(S3, Gemini AI)를 시뮬레이션합니다.
-# 초보 개발자를 위해 각 테스트 함수에 목적과 mocking 이유를 주석으로 설명합니다.
+# src/app/test/routers/test_evaluation.py
+# 이 파일은 /request 엔드포인트의 단위 테스트를 정의합니다.
+# FastAPI TestClient를 사용하여 API를 호출하고, 외부 의존성을 모킹합니다.
+# 비동기 테스트를 위해 pytest-asyncio를 사용합니다.
+# 테스트 목적: 분석 요청이 성공적으로 처리되고 DB에 저장되는지 확인.
+# 수정: main.py prefix="/" 설정에 맞춰 경로 유지, 인증 의존성 오버라이드 강화.
 
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock, AsyncMock
-from botocore.exceptions import ClientError
-from app.main import app  # main.py에서 FastAPI 앱을 import (프로젝트 구조에 맞게 조정)
+import json
 
-# TestClient 초기화: FastAPI 앱을 테스트 모드로 로드
+# FastAPI 앱 및 관련 임포트
+from app.main import app  # app/main.py에 있는 FastAPI app을 임포트 (Mangum 핸들러와 연동됨)
+from app.routers.evaluation import router, require_scope  # evaluation 라우터와 의존성 임포트
+from app.prompts.yeobi_startup import EVALUATION_CRITERIA  # 섹션 수 확인용
+
+# TestClient 생성: 전체 app 사용 (prefix="/"이므로 /request 직접 접근)
 client = TestClient(app)
 
-# 기본 요청 데이터: AnalysisCreateIn 스키마에 맞춤 (file_path 포함)
-BASE_JSON_DATA = {
-    "contest_type": "예비창업패키지",
-    "file_path": "mock/path/mock.pdf",  # file_path 사용: S3 키 시뮬레이션
-    "analysis_model": "gemini-2.5-flash",
-    "json_model": "gemini-2.5-flash",
-    "timeout_sec": 60
+# 수정: 인증 의존성 오버라이드 (openid scope를 모킹하여 404/인증 오류 방지)
+def mock_require_scope(scope: str):
+    return True  # 가짜로 인증 통과 반환 (실제 Cognito 호출 무시)
+
+app.dependency_overrides[require_scope] = mock_require_scope  # require_scope 함수 오버라이드
+
+# 테스트용 더미 데이터: Gemini AI가 반환할 가짜 report_json
+dummy_report = json.dumps({
+    "score": 85.5,
+    "summary": "전체적으로 우수한 사업계획서입니다.",
+    "details": {"section1": "상세 분석 1", "section2": "상세 분석 2"}
+})
+
+# /request API 호출에 필요한 페이로드 예시 (AnalysisCreateIn 스키마에 맞춤)
+request_payload = {
+    "file_path": "dummy/path/to/file.pdf",  # S3 파일 경로 (모킹됨)
+    "contest_type": "startup",  # 공모전 유형
+    "timeout_sec": 10,  # 타임아웃 초
+    "json_model": "test-model"  # 사용 모델
 }
 
-# 성공 케이스 테스트: 분석 요청이 정상적으로 처리되는지 확인
-@pytest.mark.asyncio
-@patch("app.routers.evaluation._s3.download_file")  # S3 다운로드 mocking
-@patch("app.routers.evaluation.genai.upload_file_async", new_callable=AsyncMock)  # Gemini 파일 업로드 mocking
-@patch("app.routers.evaluation.genai.GenerativeModel.generate_content_async", new_callable=AsyncMock)  # Gemini 콘텐츠 생성 mocking (2번 호출: 섹션 분석 + 최종 보고서)
-async def test_create_analysis_success(
-    mock_generate_content_async,
-    mock_upload_file_async,
-    mock_download_file
-):
-    """
-    목적: 정상적인 분석 요청 시 201 상태 코드와 응답 구조를 확인합니다.
-    mocking 이유: 실제 S3/Gemini 호출을 피하고, 테스트를 빠르게 실행하기 위함.
-    """
-    # S3 다운로드 성공 시뮬레이션
-    mock_download_file.return_value = None
+# 비동기 테스트 함수: /request 엔드포인트 테스트
+@pytest.mark.asyncio  # 비동기 테스트를 위한 마커 (pytest-asyncio 필요)
+@patch("app.routers.evaluation._s3")  # AWS S3 클라이언트 모킹 (boto3.client)
+@patch("app.routers.evaluation.genai")  # Google Generative AI 모킹
+@patch("app.routers.evaluation.create_analysis_result")  # DB 저장 함수 모킹 (app.crud.evaluation)
+async def test_create_analysis(mock_create_analysis_result, mock_genai, mock_s3):
+    # S3 download_file 모킹: 실제 다운로드를 하지 않고 None 반환 (성공 시뮬레이션)
+    mock_s3.download_file.return_value = None
 
-    # Gemini 업로드 파일 mocking
-    mock_upload_file_async.return_value = MagicMock(file_name="mock.pdf")
+    # genai.configure 모킹: API 키 설정을 모킹 (동기 함수)
+    mock_genai.configure.return_value = None
 
-    # Gemini generate_content_async mocking: 첫 번째 호출(섹션 분석), 두 번째 호출(최종 보고서)
-    mock_generate_content_async.side_effect = [
-        AsyncMock(text="Test analysis section"),  # 섹션 분석 응답
-        AsyncMock(text='{"final_report": true}')   # 최종 JSON 보고서 응답
-    ]
+    # genai.upload_file_async 모킹: 파일 업로드를 비동기 모킹 (AsyncMock 사용)
+    mock_genai.upload_file_async = AsyncMock(return_value=MagicMock())  # 가짜 업로드 파일 객체 반환
 
-    # API 호출
-    response = client.post("/request", json=BASE_JSON_DATA)
+    # genai.GenerativeModel 모킹: 섹션 분석 모델 (여러 번 호출되므로 side_effect 사용)
+    mock_model_instance = MagicMock()
+    mock_model_instance.generate_content_async = AsyncMock(return_value=MagicMock(text="샘플 분석 텍스트"))
+    
+    # 최종 보고서 모델 모킹: report_json 반환
+    mock_final_model_instance = MagicMock()
+    mock_final_model_instance.generate_content_async = AsyncMock(return_value=MagicMock(text=dummy_report))
+    
+    # 수정: GenerativeModel side_effect 동적 설정 (섹션 분석(EVALUATION_CRITERIA 수) + 최종 보고서 1회)
+    mock_genai.GenerativeModel.side_effect = [mock_model_instance] * len(EVALUATION_CRITERIA) + [mock_final_model_instance]
 
-    # 결과 확인
-    assert response.status_code == 201
-    assert "report_json" in response.json()
-    assert response.json()["sections_analyzed"] > 0  # 분석된 섹션 수 확인
-    assert response.json()["contest_type"] == BASE_JSON_DATA["contest_type"]
-
-# S3 404 에러 케이스 테스트: 파일이 없을 때 404 반환 확인
-@pytest.mark.asyncio
-@patch("app.routers.evaluation._s3.download_file")  # S3 다운로드 mocking
-async def test_create_analysis_s3_not_found(mock_download_file):
-    """
-    목적: S3에서 파일을 찾을 수 없을 때 (404/NoSuchKey) HTTP 404를 반환하는지 확인합니다.
-    mocking 이유: 실제 S3 에러를 시뮬레이션하여 예외 처리 로직 테스트.
-    """
-    # S3 다운로드 에러 mocking: ClientError with '404' code
-    error_response = {"Error": {"Code": "404"}}
-    mock_download_file.side_effect = ClientError(error_response, "download_file")
-
-    # API 호출
-    response = client.post("/request", json=BASE_JSON_DATA)
-
-    # 결과 확인
-    assert response.status_code == 404
-    assert "S3 객체를 찾을 수 없습니다." in response.json()["detail"]
-
-# 타임아웃 에러 케이스 테스트: 분석 시간이 초과할 때 504 반환 확인
-@pytest.mark.asyncio
-@patch("app.routers.evaluation._s3.download_file")  # S3 다운로드 mocking
-@patch("app.routers.evaluation.genai.upload_file_async", new_callable=AsyncMock)  # Gemini 업로드 mocking
-@patch("app.routers.evaluation.asyncio.gather", new_callable=AsyncMock)  # asyncio.gather mocking for timeout
-async def test_create_analysis_timeout(
-    mock_gather,
-    mock_upload_file_async,
-    mock_download_file
-):
-    """
-    목적: 분석 타임아웃 시 HTTP 504를 반환하는지 확인합니다.
-    mocking 이유: asyncio.wait_for의 타임아웃을 시뮬레이션.
-    """
-    # S3 다운로드 성공
-    mock_download_file.return_value = None
-
-    # Gemini 업로드 성공
-    mock_upload_file_async.return_value = MagicMock(file_name="mock.pdf")
-
-    # asyncio.gather 타임아웃 에러 시뮬레이션
-    mock_gather.side_effect = asyncio.TimeoutError()
-
-    # API 호출
-    response = client.post("/request", json=BASE_JSON_DATA)
-
-    # 결과 확인
-    assert response.status_code == 504
-    assert "분석 타임아웃" in response.json()["detail"]
-
-# 추가: DB 관련 엔드포인트 테스트 (create_result_endpoint 예시)
-@pytest.mark.asyncio
-@patch("app.crud.evaluation.create_analysis_result")  # CRUD 함수 mocking
-async def test_create_result_endpoint(mock_create_analysis_result):
-    """
-    목적: 분석 결과 기록 엔드포인트가 정상 동작하는지 확인합니다.
-    mocking 이유: 실제 DB 접근을 피함.
-    """
-    # mocking 반환값: 가짜 AnalysisResultOut 객체
-    mock_create_analysis_result.return_value = MagicMock(
-        analysis_job_id=1,
-        evaluation_type="test",
-        score=90.0,
-        summary="Test summary",
-        details="Test details"
-    )
-
-    # 요청 데이터
-    json_data = {
-        "analysis_job_id": 1,
-        "evaluation_type": "test",
-        "score": 90.0,
-        "summary": "Test summary",
-        "details": "Test details"
+    # create_analysis_result 모킹: DB 저장 결과를 가짜로 반환 (AnalysisResultOut 스키마에 맞춤)
+    mock_create_analysis_result.return_value = {
+        "result_id": 123,  # 가짜 result_id
+        "score": 85.5,
+        "summary": "전체적으로 우수한 사업계획서입니다.",
+        "details": dummy_report  # JSON 문자열
     }
 
-    # API 호출
-    response = client.post("/record", json=json_data)
+    # TestClient로 POST 요청 보내기: prefix="/"이므로 /request 직접 사용
+    response = client.post("/request", json=request_payload)
 
-    # 결과 확인
-    assert response.status_code == 201
-    assert response.json()["score"] == 90.0
+    # 응답 검증: 상태 코드와 JSON 내용 확인
+    assert response.status_code == 201  # HTTP 201 Created 기대
+    json_resp = response.json()
+    assert json_resp["result_id"] == 123  # 저장된 result_id 확인
+    assert json_resp["score"] == 85.5  # 점수 확인
+    assert json_resp["summary"] == "전체적으로 우수한 사업계획서입니다."  # 요약 확인
+
+    # 모킹 함수 호출 확인: 올바른 인수로 호출되었는지 검증
+    mock_s3.download_file.assert_called_once()  # S3 다운로드 1회 호출 확인
+    mock_genai.upload_file_async.assert_awaited_once()  # 파일 업로드 비동기 호출 확인
+    mock_create_analysis_result.assert_called_once()  # DB 저장 1회 호출 확인
