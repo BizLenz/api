@@ -7,7 +7,7 @@ from app.models import BusinessPlan, AnalysisResult
 from app.core.security import get_claims
 from app.routers.files import get_current_user_id
 
-analysis = APIRouter(prefix="/analysis", tags=["analysis"])
+analysis = APIRouter(tags=["analysis"])
 
 
 # 유저가 관련 업종/시장상황/전문적 의견 데이터 요청
