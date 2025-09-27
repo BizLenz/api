@@ -14,7 +14,6 @@ analysis = APIRouter(
     tags=["analysis"]
 )
 
-
 # 유저가 관련 업종/시장상황/전문적 의견 데이터 요청
 @analysis.get("/industry-data", response_model=Dict[str, Any])
 def get_industry_data(

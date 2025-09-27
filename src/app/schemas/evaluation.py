@@ -5,17 +5,28 @@ from pydantic import BaseModel, Field, field_validator, condecimal
 
 
 class AnalysisCreateIn(BaseModel):
-    contest_type: Literal["Pre_startup_package"] = Field(default="Pre_startup_package")
-    file_path: str = Field(..., description="이미 저장된 사업계획서 PDF의 S3 오브젝트 키")
+    contest_type: Literal["예비창업패키지"] = Field(default="예비창업패키지")
+<<<<<<< HEAD
+    s3_key: str = Field(..., description="이미 저장된 사업계획서 PDF의 S3 오브젝트 키")
+=======
+    file_path: str = Field(
+        ..., description="이미 저장된 사업계획서 PDF의 S3 오브젝트 키"
+    )
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
     analysis_model: str = Field(default="gemini-2.5-flash")
     json_model: str = Field(default="gemini-2.5-flash")
     timeout_sec: int = Field(default=120, ge=10, le=600)
 
+<<<<<<< HEAD
+class AnalysisResponse(BaseModel):
+    report_json: str = Field(..., description="Gemini가 생성한 최종 평가 보고서(JSON 문자열)")
+=======
 
 class AnalysisResponse(BaseModel):
     report_json: str = Field(
         ..., description="Gemini가 생성한 최종 평가 보고서(JSON 문자열)"
     )
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
     sections_analyzed: int = Field(..., ge=0)
     contest_type: str = Field(...)
 
@@ -23,7 +34,11 @@ class AnalysisResponse(BaseModel):
         "json_schema_extra": {
             "examples": [
                 {
+<<<<<<< HEAD
+                    "report_json": "{\"title\": \"예비창업패키지 사업계획서 최종 평가 보고서\", ...}",
+=======
                     "report_json": '{"title": "예비창업패키지 사업계획서 최종 평가 보고서", ...}',
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
                     "sections_analyzed": 6,
                     "contest_type": "예비창업패키지",
                 }
@@ -31,6 +46,21 @@ class AnalysisResponse(BaseModel):
         }
     }
 
+<<<<<<< HEAD
+class AnalysisResultCreateIn(BaseModel):
+    analysis_job_id: int = Field(..., description="연결할 분석 작업 ID")
+    evaluation_type: Literal["overall", "market", "industry", "feedback"] = Field(
+        ..., description="평가 유형"
+    )
+    score: Optional[condecimal(max_digits=5, decimal_places=2)] = Field(
+        None, description="점수(0.00~100.00)"
+    )
+    summary: Optional[str] = Field(None, description="요약")
+    details: Dict[str, Any] = Field(
+        default_factory=dict, description="분석 상세 JSON 데이터(JSONB로 저장)"
+    )
+
+=======
 
 class AnalysisResultCreateIn(BaseModel):
     analysis_job_id: int = Field(..., description="연결할 분석 작업 ID")
@@ -45,6 +75,7 @@ class AnalysisResultCreateIn(BaseModel):
         default_factory=dict, description="분석 상세 JSON 데이터(JSONB로 저장)"
     )
 
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
     @field_validator("score")
     @classmethod
     def _check_score(cls, v):
@@ -54,7 +85,10 @@ class AnalysisResultCreateIn(BaseModel):
             raise ValueError("score must be between 0 and 100")
         return v
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
 class AnalysisResultOut(BaseModel):
     id: int
     analysis_job_id: int
@@ -65,4 +99,8 @@ class AnalysisResultOut(BaseModel):
     created_at: Optional[str] = None
 
     class Config:
+<<<<<<< HEAD
         from_attributes = True  # ORM 객체 → Pydantic 변환 허용
+=======
+        from_attributes = True  # ORM 객체 → Pydantic 변환 허용
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
