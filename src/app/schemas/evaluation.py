@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, field_validator, condecimal
 
 
 class AnalysisCreateIn(BaseModel):
-    contest_type: Literal["예비창업패키지"] = Field(default="예비창업패키지")
+    contest_type: Literal["Pre_startup_package"] = Field(default="Pre_startup_package")
     file_path: str = Field(..., description="이미 저장된 사업계획서 PDF의 S3 오브젝트 키")
     analysis_model: str = Field(default="gemini-2.5-flash")
     json_model: str = Field(default="gemini-2.5-flash")

@@ -15,6 +15,9 @@ from app.main import app  # app/main.py에 있는 FastAPI app을 임포트 (Mang
 from app.routers.evaluation import router, require_scope  # evaluation 라우터와 의존성 임포트
 from app.prompts.yeobi_startup import EVALUATION_CRITERIA  # 섹션 수 확인용
 
+
+app.dependency_overrides[require_scope] = lambda scope: True
+
 # TestClient 생성: 전체 app 사용 (prefix="/"이므로 /request 직접 접근)
 client = TestClient(app)
 
@@ -40,10 +43,11 @@ request_payload = {
 }
 
 # 비동기 테스트 함수: /request 엔드포인트 테스트
-@pytest.mark.asyncio  # 비동기 테스트를 위한 마커 (pytest-asyncio 필요)
+
 @patch("app.routers.evaluation._s3")  # AWS S3 클라이언트 모킹 (boto3.client)
 @patch("app.routers.evaluation.genai")  # Google Generative AI 모킹
 @patch("app.routers.evaluation.create_analysis_result")  # DB 저장 함수 모킹 (app.crud.evaluation)
+@pytest.mark.asyncio  # 비동기 테스트를 위한 마커 (pytest-asyncio 필요)
 async def test_create_analysis(mock_create_analysis_result, mock_genai, mock_s3):
     # S3 download_file 모킹: 실제 다운로드를 하지 않고 None 반환 (성공 시뮬레이션)
     mock_s3.download_file.return_value = None
@@ -87,3 +91,5 @@ async def test_create_analysis(mock_create_analysis_result, mock_genai, mock_s3)
     mock_s3.download_file.assert_called_once()  # S3 다운로드 1회 호출 확인
     mock_genai.upload_file_async.assert_awaited_once()  # 파일 업로드 비동기 호출 확인
     mock_create_analysis_result.assert_called_once()  # DB 저장 1회 호출 확인
+    
+app.dependency_overrides.clear()
