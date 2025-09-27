@@ -16,7 +16,6 @@ import boto3
 from app.schemas.file_schemas import PresignedUrlRequest, FileMetadataSaveRequest
 
 # bizlenz/read scope is always a must
-#files = APIRouter(dependencies=[Depends(require_scope("bizlenz/read"))])
 files = APIRouter(dependencies=[Depends(require_scope("bizlenz/read"))])
 
 s3_client = boto3.client(
@@ -200,11 +199,10 @@ def get_my_files(
     limit: int = Query(50, ge=1, le=100, description="조회할 파일 수"),
     offset: int = Query(0, ge=0, description="시작 위치 (페이지네이션)"),
     db: Session = Depends(get_db),
-    #claims: Dict[str, Any] = Depends(get_claims),
+    claims: Dict[str, Any] = Depends(get_claims),
 ):
     """Search all files uploaded by the user (최신순)"""
-    #user_id = get_current_user_id(claims)
-    user_id = "6428ad7c-5021-703c-630a-3a9ecbb3407b"  # 임시 하드코딩
+    user_id = get_current_user_id(claims)
     _files = (
         db.query(BusinessPlan)
         .filter(BusinessPlan.user_id == user_id)
@@ -229,22 +227,21 @@ def get_my_files(
 def delete_file(
     file_id: int,
     db: Session = Depends(get_db),
-    #claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
+    claims: Dict[str, Any] = Depends(require_scope("bizlenz/write")),
 ):
     """Delete file, both in S3 and DB"""
-    #user_id = get_current_user_id(claims)
-    user_id = "6428ad7c-5021-703c-630a-3a9ecbb3407b"  # 임시 하드코딩
+    user_id = get_current_user_id(claims)
     try:
         file = db.query(BusinessPlan).filter(BusinessPlan.id == file_id).first()
 
         if not file:
             raise HTTPException(status_code=404, detail="File not found")
 
-        '''if file.user_id != user_id and not is_admin(claims):
+        if file.user_id != user_id and not is_admin(claims):
             raise HTTPException(
                 status_code=403,
                 detail="Permission denied: You can only delete your own files",
-            )'''
+            )
 
         if file.file_path:
             print(f"DEBUG - file.file_path: {file.file_path}")
@@ -314,9 +311,10 @@ def download_file(
             raise HTTPException(status_code=404, detail="File path not found")
 
         try:
-            s3_key = _file.file_path.split(
-                f"{settings.s3_bucket_name}.s3.amazonaws.com/"
-            )[-1]
+            if "s3.amazonaws.com/" in _file.file_path:
+                s3_key = _file.file_path.split("s3.amazonaws.com/")[-1]
+            else:
+                s3_key = _file.file_path
             presigned_url = s3_client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": settings.s3_bucket_name, "Key": s3_key},
