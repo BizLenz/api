@@ -6,8 +6,13 @@ from app.database import get_db
 from app.models import BusinessPlan, AnalysisResult
 from app.core.security import get_claims
 from app.routers.files import get_current_user_id
+from app.core.security import require_scope
+from fastapi import Depends
 
-analysis = APIRouter(prefix="/analysis", tags=["analysis"])
+analysis = APIRouter(
+    dependencies=[Depends(require_scope("bizlenz/read"))],
+    tags=["analysis"]
+)
 
 
 # 유저가 관련 업종/시장상황/전문적 의견 데이터 요청
@@ -44,9 +49,7 @@ def get_industry_data(
         .all()
     )
     if not results:
-        raise HTTPException(
-            status_code=404, detail="Industry/market analysis not found"
-        )
+        raise HTTPException(status_code=404, detail="Industry/market analysis not found")
 
     industry_trends, market_conditions = None, None
     sources = []
@@ -70,7 +73,7 @@ def get_industry_data(
     }
 
 
-# 유저가 분석 기록 삭제 요청
+# 유저가 분석 기록 삭제 요청 
 @analysis.post("/records/{action}")
 def manage_analysis_record(
     action: str,
@@ -117,7 +120,8 @@ def manage_analysis_record(
         except Exception as e:
             db.rollback()
             raise HTTPException(
-                status_code=500, detail=f"Error deleting analysis record: {str(e)}"
+                status_code=500, 
+                detail=f"Error deleting analysis record: {str(e)}"
             )
     else:
         raise HTTPException(status_code=400, detail="Invalid action")

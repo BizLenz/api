@@ -35,7 +35,8 @@ import google.generativeai as genai
 from google.generativeai import types
 
 # FastAPI 라우터 정의: openid 스코프를 요구하여 인증된 사용자만 접근 가능
-router = APIRouter(dependencies=[Depends(require_scope("openid"))])
+router = APIRouter()
+evaluation_router = APIRouter(dependencies=[Depends(require_scope("openid"))])
 
 # AWS S3 클라이언트 초기화: settings에서 region과 bucket 이름을 불러옴
 _s3 = boto3.client("s3", region_name=settings.aws_region)
@@ -90,7 +91,7 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
     return {"criteria": criteria, "analysis_text": text}
 
 # 분석 요청 엔드포인트: 사업계획서 PDF를 S3에서 다운로드하고 분석 후 DB에 저장
-@router.post(
+@evaluation_router.post(
     "/request", response_model=AnalysisResultOut, status_code=status.HTTP_201_CREATED  # 반환 모델을 AnalysisResultOut으로 변경 (DB 저장 결과 포함)
 )
 async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):  # DB 세션 추가: Depends(get_db)로 SQLAlchemy 세션을 주입합니다.
@@ -179,7 +180,7 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
     return saved_result
 
 # 분석 결과 조회 엔드포인트: result_id로 조회 (기존 유지)
-@router.get(
+@evaluation_router.get(
     "/results/{result_id}",
     response_model=AnalysisResultOut,
     summary="분석 결과 단건 조회",
