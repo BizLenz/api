@@ -101,6 +101,8 @@ def upload(
             "success": True,
             "message": "Presigned URL generated successfully",
             "presigned_url": url,
+            "key": s3_full_key,
+            "file_url": f"https://{settings.s3_bucket_name}.s3.amazonaws.com/{s3_full_key}",
         }
     except (ClientError, BotoCoreError, Exception) as err:
         raise to_http_exception(err)
@@ -201,7 +203,6 @@ def get_my_files(
 ):
     """Search all files uploaded by the user (최신순)"""
     user_id = get_current_user_id(claims)
-
     _files = (
         db.query(BusinessPlan)
         .filter(BusinessPlan.user_id == user_id)
@@ -230,7 +231,6 @@ def delete_file(
 ):
     """Delete file, both in S3 and DB"""
     user_id = get_current_user_id(claims)
-
     try:
         file = db.query(BusinessPlan).filter(BusinessPlan.id == file_id).first()
 
@@ -244,10 +244,23 @@ def delete_file(
             )
 
         if file.file_path:
-            s3_key = file.file_path.split(
-                f"{settings.s3_bucket_name}.s3.amazonaws.com/"
-            )[-1]
-            s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=s3_key)
+            print(f"DEBUG - file.file_path: {file.file_path}")
+            print(f"DEBUG - settings.s3_bucket_name: {settings.s3_bucket_name}")
+            
+            # S3 키 추출
+            if "s3.amazonaws.com/" in file.file_path:
+                s3_key = file.file_path.split("s3.amazonaws.com/")[-1]
+            else:
+                s3_key = file.file_path
+            
+            print(f"DEBUG - extracted s3_key: {s3_key}")
+            
+            try:
+                response = s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=s3_key)
+                print(f"DEBUG - S3 delete successful: {response}")
+            except Exception as s3_error:
+                print(f"DEBUG - S3 delete failed: {s3_error}")
+                raise s3_error
 
         db.delete(file)
         db.commit()
@@ -257,7 +270,7 @@ def delete_file(
             "message": "File deleted successfully",
             "deleted_file_id": file_id,
         }
-
+    
     except (ClientError, BotoCoreError) as s3_error:
         db.rollback()
         print(f"S3 deletion failed: {s3_error}")
@@ -298,9 +311,10 @@ def download_file(
             raise HTTPException(status_code=404, detail="File path not found")
 
         try:
-            s3_key = _file.file_path.split(
-                f"{settings.s3_bucket_name}.s3.amazonaws.com/"
-            )[-1]
+            if "s3.amazonaws.com/" in _file.file_path:
+                s3_key = _file.file_path.split("s3.amazonaws.com/")[-1]
+            else:
+                s3_key = _file.file_path
             presigned_url = s3_client.generate_presigned_url(
                 "get_object",
                 Params={"Bucket": settings.s3_bucket_name, "Key": s3_key},
