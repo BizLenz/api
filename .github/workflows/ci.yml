@@ -64,7 +64,11 @@ jobs:
 
 
       - name: Run Pytest
+<<<<<<< HEAD
+        run: uv run pytest          # 8. Pytest로 자동화 테스트 실행
+=======
         run: uv run pytest src/app/test/test_evaluation.py        # 8. Pytest로 자동화 테스트 실행
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
 
 
       - name: Build Docker image

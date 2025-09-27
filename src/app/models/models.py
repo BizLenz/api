@@ -23,6 +23,17 @@ from app.database import Base
 # -----------------------
 class User(Base):
     __tablename__ = "users"
+<<<<<<< HEAD
+
+    id = Column(
+        String(255), primary_key=True, comment="Cognito Sub (서비스 내부 고유 ID)"
+    )
+    created_at = Column(
+        TIMESTAMP(timezone=True),
+        server_default=func.now(),
+        comment="서비스 프로필 생성 일시",
+    )
+=======
     id = Column(Integer, primary_key=True, index=True)  # 사용자 ID
     username = Column(String(50), unique=True, nullable=False)  # 사용자명 (UNIQUE)
     password_hash = Column(String(255), nullable=False)  # 해시된 비밀번호
@@ -30,12 +41,11 @@ class User(Base):
     phone_number = Column(String(20))  # 연락처
     address = Column(Text)  # 주소
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())  # 생성일시
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
     updated_at = Column(
-        TIMESTAMP(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now()
+        TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
     )  # 수정일시
-    
+
     # 관계 (1:N) - 한 사용자는 여러 개의 사업계획서를 업로드할 수 있다
     business_plans = relationship(
         "BusinessPlan", back_populates="user", cascade="all, delete-orphan"
@@ -48,12 +58,16 @@ class User(Base):
 class BusinessPlan(Base):
     __tablename__ = "business_plans"
     id = Column(Integer, primary_key=True, index=True)  # 사업계획서 ID
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))  # 업로드한 사용자 ID
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE")
+    )  # 업로드한 사용자 ID
     file_name = Column(String(255), nullable=False)  # 원본 파일명
     file_path = Column(String(500), nullable=False)  # 파일 저장 경로
     file_size = Column(BigInteger)  # 파일 크기
     mime_type = Column(String(100))  # 파일 MIME 타입
-    created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())  # 업로드 일시
+    created_at = Column(
+        TIMESTAMP(timezone=True), server_default=func.now()
+    )  # 업로드 일시
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
