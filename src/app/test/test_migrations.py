@@ -145,3 +145,4 @@ class TestMigrations:
                 assert user_tables_after_downgrade == initial_tables, (
                     "Downgrade didn't restore original state"
                 )
+                
