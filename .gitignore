@@ -195,6 +195,7 @@ pyrightconfig.json
 .history
 .ionide
 
+<<<<<<< HEAD
 ### PyCharm+all ###
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
@@ -284,15 +285,23 @@ fabric.properties
 !.idea/codeStyles
 !.idea/runConfigurations
 
+=======
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
 # End of https://www.toptal.com/developers/gitignore/api/python,visualstudiocode.env
 .env.*
 !.env.example
 *.pem
 src/.env
 
+<<<<<<< HEAD
 
 .DS_Store
 **/.DS_Store
 
 # aws-sam
 .aws-sam/
+=======
+# prompts
+prompts/*
+!prompts/example/*
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
