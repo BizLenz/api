@@ -17,7 +17,7 @@ from app.schemas.file_schemas import PresignedUrlRequest, FileMetadataSaveReques
 
 # bizlenz/read scope is always a must
 #files = APIRouter(dependencies=[Depends(require_scope("bizlenz/read"))])
-files = APIRouter()
+files = APIRouter(dependencies=[Depends(require_scope("bizlenz/read"))])
 
 s3_client = boto3.client(
     "s3",

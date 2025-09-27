@@ -6,9 +6,13 @@ from app.database import get_db
 from app.models import BusinessPlan, AnalysisResult
 from app.core.security import get_claims
 from app.routers.files import get_current_user_id
+from app.core.security import require_scope
+from fastapi import Depends
 
-analysis = APIRouter(tags=["analysis"])
-
+analysis = APIRouter(
+    dependencies=[Depends(require_scope("bizlenz/read"))],
+    tags=["analysis"]
+)
 
 # 유저가 관련 업종/시장상황/전문적 의견 데이터 요청
 @analysis.get("/industry-data", response_model=Dict[str, Any])
