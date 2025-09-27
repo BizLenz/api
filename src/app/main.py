@@ -87,6 +87,7 @@ def include_routers_recursive(
                 tag = prefix.strip("/").split("/")[-1] or "root"
                 app.include_router(attr, prefix=prefix, tags=[tag])
 
+
 app = FastAPI(
     title="BizLenz API (REST + Cognito User Pools)",
     description="Cognito User Pool Authorizer로 보호되는 REST API. Lambda(FastAPI+Mangum).",
@@ -122,6 +123,7 @@ else:
 include_routers_recursive(app, routers_package, "app.routers")
 app.include_router(health_router)
 logger = logging.getLogger("bizlenz.auth")  # 인증/인가 영역 전용 로거
+
 
 # REST API(v1)용: requestContext.authorizer.claims 경로 사용
 @app.middleware("http")

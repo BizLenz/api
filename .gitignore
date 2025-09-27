@@ -200,8 +200,7 @@ pyrightconfig.json
 !.env.example
 *.pem
 src/.env
-.env.*
-*.pem
-.env
-.env.*
-*.pem
+
+# prompts
+prompts/*
+!prompts/example/*
