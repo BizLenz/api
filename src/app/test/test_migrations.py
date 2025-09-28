@@ -8,6 +8,7 @@ from sqlalchemy import create_engine, inspect
 from alembic.config import Config
 from alembic import command
 import os
+
 os.environ["TESTING"] = "docker"  # 테스트 파일 시작에 추가
 
 
@@ -19,11 +20,13 @@ class TestMigrations:
         """환경에 따른 DB 엔진"""
         if os.getenv("TESTING") == "docker":
             # Docker PostgreSQL 사용
-            engine = create_engine("postgresql://test_user:test123@localhost:5433/bizlenz_test")
+            engine = create_engine(
+                "postgresql://test_user:test123@localhost:5433/bizlenz_test"
+            )
         else:
             # 기본 SQLite 사용
             engine = create_engine("sqlite:///:memory:")
-        
+
         yield engine
         engine.dispose()
 
@@ -31,11 +34,11 @@ class TestMigrations:
     def alembic_config(self, temp_engine):
         """Alembic 설정"""
         config = Config("alembic.ini")
-        
+
         # Docker 환경에서는 env.py가 자동으로 URL 설정
         if os.getenv("TESTING") != "docker":
             config.set_main_option("sqlalchemy.url", str(temp_engine.url))
-            
+
         return config
 
     def test_upgrade_creates_tables(self, temp_engine, alembic_config):
@@ -44,7 +47,7 @@ class TestMigrations:
         if os.getenv("TESTING") == "docker":
             # Docker PostgreSQL: env.py가 직접 연결 관리
             command.upgrade(alembic_config, "head")
-            
+
             # 테이블 확인
             inspector = inspect(temp_engine)
             tables = inspector.get_table_names()
@@ -53,11 +56,15 @@ class TestMigrations:
             with temp_engine.connect() as connection:
                 alembic_config.attributes["connection"] = connection
                 command.upgrade(alembic_config, "head")
-                
+
                 inspector = inspect(temp_engine)
                 tables = inspector.get_table_names()
 
-        expected_tables = {"users", "business_plans", "analysis_jobs"}  # analyses -> analysis_jobs
+        expected_tables = {
+            "users",
+            "business_plans",
+            "analysis_jobs",
+        }  # analyses -> analysis_jobs
         assert expected_tables.issubset(tables), (
             f"Expected tables not created: {expected_tables}"
         )
@@ -92,7 +99,7 @@ class TestMigrations:
             # Docker PostgreSQL
             # 먼저 베이스로 다운그레이드 (깨끗한 상태로 시작)
             command.downgrade(alembic_config, "base")
-            
+
             inspector = inspect(temp_engine)
             initial_tables = set(inspector.get_table_names())
 
@@ -145,4 +152,3 @@ class TestMigrations:
                 assert user_tables_after_downgrade == initial_tables, (
                     "Downgrade didn't restore original state"
                 )
-                
