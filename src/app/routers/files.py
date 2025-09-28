@@ -246,17 +246,19 @@ def delete_file(
         if file.file_path:
             print(f"DEBUG - file.file_path: {file.file_path}")
             print(f"DEBUG - settings.s3_bucket_name: {settings.s3_bucket_name}")
-            
+
             # S3 키 추출
             if "s3.amazonaws.com/" in file.file_path:
                 s3_key = file.file_path.split("s3.amazonaws.com/")[-1]
             else:
                 s3_key = file.file_path
-            
+
             print(f"DEBUG - extracted s3_key: {s3_key}")
-            
+
             try:
-                response = s3_client.delete_object(Bucket=settings.s3_bucket_name, Key=s3_key)
+                response = s3_client.delete_object(
+                    Bucket=settings.s3_bucket_name, Key=s3_key
+                )
                 print(f"DEBUG - S3 delete successful: {response}")
             except Exception as s3_error:
                 print(f"DEBUG - S3 delete failed: {s3_error}")
@@ -270,7 +272,7 @@ def delete_file(
             "message": "File deleted successfully",
             "deleted_file_id": file_id,
         }
-    
+
     except (ClientError, BotoCoreError) as s3_error:
         db.rollback()
         print(f"S3 deletion failed: {s3_error}")
