@@ -34,7 +34,8 @@ import google.generativeai as genai
 from google.generativeai import types
 
 # FastAPI 라우터 정의: openid 스코프를 요구하여 인증된 사용자만 접근 가능
-router = APIRouter(dependencies=[Depends(require_scope("openid"))])
+router = APIRouter()
+evaluation_router = APIRouter(dependencies=[Depends(require_scope("openid"))])
 
 # AWS S3 클라이언트 초기화: settings에서 region과 bucket 이름을 불러옴
 _s3 = boto3.client("s3", region_name=settings.aws_region)
@@ -52,6 +53,9 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
         questions_str = "\n".join(
             [f"  - {q}" for q in pillar_data.get("questions", [])]
         )
+        questions_str = "\n".join(
+            [f"  - {q}" for q in pillar_data.get("questions", [])]
+        )
         pillars_description.append(
             f"- **{pillar_name}:** {pillar_data['description']}\n"
             f"  **[세부 검토사항]**\n{questions_str}"
@@ -64,6 +68,7 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
         )
 
     # 프롬프트 템플릿 적용: 분석 기준을 바탕으로 Gemini에 전달할 프롬프트를 생성합니다.
+    # 프롬프트 템플릿 적용: 분석 기준을 바탕으로 Gemini에 전달할 프롬프트를 생성합니다.
     prompt = SECTION_ANALYSIS_PROMPT_TEMPLATE.format(
         section_name=criteria["section_name"],
         max_score=criteria["max_score"],
@@ -72,8 +77,10 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
     )
 
     # Gemini 모델 초기화 및 콘텐츠 생성 (비동기 호출): settings에서 모델 이름을 불러와 사용합니다.
+    # Gemini 모델 초기화 및 콘텐츠 생성 (비동기 호출): settings에서 모델 이름을 불러와 사용합니다.
     model = genai.GenerativeModel(
-        model_name=settings.gemini_model_analysis, system_instruction=SYSTEM_PROMPT
+        model_name=settings.gemini_model_analysis,
+        system_instruction=SYSTEM_PROMPT,
     )
 
     resp = await model.generate_content_async(
@@ -87,11 +94,18 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
         "text",
         f"### 분석 섹션: {criteria['section_name']}\n\n[ANALYSIS FAILED]\n\n---",
     )
+
+    # 응답 텍스트 추출 (실패 시 기본 텍스트 반환): AI 응답이 실패하면 기본 에러 메시지를 반환합니다.
+    text = getattr(
+        resp,
+        "text",
+        f"### 분석 섹션: {criteria['section_name']}\n\n[ANALYSIS FAILED]\n\n---",
+    )
     return {"criteria": criteria, "analysis_text": text}
 
 
 # 분석 요청 엔드포인트: 사업계획서 PDF를 S3에서 다운로드하고 분석 후 DB에 저장
-@router.post(
+@evaluation_router.post(
     "/request",
     response_model=AnalysisResultOut,
     status_code=status.HTTP_201_CREATED,  # 반환 모델을 AnalysisResultOut으로 변경 (DB 저장 결과 포함)
@@ -104,7 +118,11 @@ async def create_analysis(
         with tempfile.TemporaryDirectory() as td:
             # file_path 사용 부분 1: 파일명 추출 (S3 키의 마지막 부분을 파일명으로 사용)
             filename = req.file_path.split("/")[-1] or "input.pdf"
+            # file_path 사용 부분 1: 파일명 추출 (S3 키의 마지막 부분을 파일명으로 사용)
+            filename = req.file_path.split("/")[-1] or "input.pdf"
             local_path = pathlib.Path(td) / filename
+
+            # file_path 사용 부분 2: S3에서 파일 다운로드 (req.file_path를 오브젝트 키로 사용)
 
             # file_path 사용 부분 2: S3에서 파일 다운로드 (req.file_path를 오브젝트 키로 사용)
             try:
@@ -123,6 +141,7 @@ async def create_analysis(
                 )
 
             # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
+            # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             genai.configure(api_key=settings.google_api_key)
             uploaded_doc_file = await genai.upload_file_async(
                 path=str(local_path), display_name=filename
@@ -137,10 +156,23 @@ async def create_analysis(
             )
 
             # 최종 보고서 프롬프트 생성 및 JSON 보고서 생성
+            # 섹션 병렬 분석: asyncio.gather로 동시에 실행하여 효율성을 높입니다.
+            tasks = [
+                _analyze_section(uploaded_doc_file, c) for c in EVALUATION_CRITERIA
+            ]
+            results = await asyncio.wait_for(
+                asyncio.gather(*tasks), timeout=req.timeout_sec
+            )
+
+            # 최종 보고서 프롬프트 생성 및 JSON 보고서 생성
             structured_parts = [
                 f"<item>\n<metadata>\n  section_name: {r['criteria']['section_name']}\n  main_category: {r['criteria']['main_category']}\n  category_max_score: {r['criteria']['category_max_score']}\n  category_min_score: {r['criteria']['category_min_score']}\n</metadata>\n<analysis>\n{r['analysis_text']}\n</analysis>\n</item>"
                 for r in results
             ]
+            final_prompt = FINAL_REPORT_PROMPT.format(
+                structured_analyses_input="\n\n".join(structured_parts)
+            )
+
             final_prompt = FINAL_REPORT_PROMPT.format(
                 structured_analyses_input="\n\n".join(structured_parts)
             )
@@ -178,6 +210,26 @@ async def create_analysis(
             summary=summary,
             details=json.dumps(details),  # details를 JSON 문자열로 저장
         )
+        # 수정된 부분: 분석 결과(report_json)를 파싱하여 DB에 저장
+        # report_json을 딕셔너리로 변환 (파싱 실패 시 기본값 설정)
+        try:
+            report_data = json.loads(report_json)
+            score = report_data.get("score")  # report_json에 score 필드가 있다고 가정
+            summary = report_data.get("summary", "")  # 요약 필드
+            details = report_data.get("details", {})  # 상세 내용 (JSON으로 저장 가능)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=500, detail="보고서 JSON 파싱 오류")
+
+        # DB 저장: create_analysis_result 호출 (analysis_job_id는 요청에서 생성하거나 임시로 설정, 여기서는 예시로 'req.contest_type'을 사용)
+        # 주의: 실제로 analysis_job_id는 유니크하게 생성해야 합니다. (예: UUID 사용 추천)
+        saved_result = create_analysis_result(
+            db,
+            analysis_job_id=f"{req.contest_type}_job_{int(asyncio.get_event_loop().time())}",  # 임시 job_id 생성 예시
+            evaluation_type=req.contest_type,
+            score=score if score is not None else None,
+            summary=summary,
+            details=json.dumps(details),  # details를 JSON 문자열로 저장
+        )
 
     except asyncio.TimeoutError:
         raise HTTPException(status_code=504, detail="분석 타임아웃")
@@ -189,7 +241,7 @@ async def create_analysis(
 
 
 # 분석 결과 조회 엔드포인트: result_id로 조회 (기존 유지)
-@router.get(
+@evaluation_router.get(
     "/results/{result_id}",
     response_model=AnalysisResultOut,
     summary="분석 결과 단건 조회",

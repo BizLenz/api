@@ -56,6 +56,7 @@ class AnalysisResultCreateIn(BaseModel):
             raise ValueError("score must be between 0 and 100")
         return v
 
+
 class AnalysisResultOut(BaseModel):
     id: int
     analysis_job_id: int
