@@ -40,6 +40,7 @@ evaluation_router = APIRouter(dependencies=[Depends(require_scope("openid"))])
 # AWS S3 클라이언트 초기화: settings에서 region과 bucket 이름을 불러옴
 _s3 = boto3.client("s3", region_name=settings.aws_region)
 
+
 # 섹션 분석 함수: Gemini AI를 사용해 사업계획서 섹션을 분석
 # uploaded_doc_file: Gemini에 업로드된 파일 객체
 # criteria: 분석 기준 딕셔너리
@@ -78,10 +79,9 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
     # Gemini 모델 초기화 및 콘텐츠 생성 (비동기 호출): settings에서 모델 이름을 불러와 사용합니다.
     # Gemini 모델 초기화 및 콘텐츠 생성 (비동기 호출): settings에서 모델 이름을 불러와 사용합니다.
     model = genai.GenerativeModel(
-        model_name=settings.gemini_model_analysis, system_instruction=SYSTEM_PROMPT
-        model_name=settings.gemini_model_analysis, system_instruction=SYSTEM_PROMPT
+        model_name=settings.gemini_model_analysis,
+        system_instruction=SYSTEM_PROMPT,
     )
-
 
     resp = await model.generate_content_async(
         contents=[prompt, uploaded_doc_file],
@@ -103,11 +103,16 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
     )
     return {"criteria": criteria, "analysis_text": text}
 
+
 # 분석 요청 엔드포인트: 사업계획서 PDF를 S3에서 다운로드하고 분석 후 DB에 저장
 @evaluation_router.post(
-    "/request", response_model=AnalysisResultOut, status_code=status.HTTP_201_CREATED  # 반환 모델을 AnalysisResultOut으로 변경 (DB 저장 결과 포함)
+    "/request",
+    response_model=AnalysisResultOut,
+    status_code=status.HTTP_201_CREATED,  # 반환 모델을 AnalysisResultOut으로 변경 (DB 저장 결과 포함)
 )
-async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):  # DB 세션 추가: Depends(get_db)로 SQLAlchemy 세션을 주입합니다.
+async def create_analysis(
+    req: AnalysisCreateIn, db: Session = Depends(get_db)
+):  # DB 세션 추가: Depends(get_db)로 SQLAlchemy 세션을 주입합니다.
     try:
         # 임시 디렉토리 생성: 파일 다운로드 후 자동 삭제
         with tempfile.TemporaryDirectory() as td:
@@ -121,7 +126,9 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
 
             # file_path 사용 부분 2: S3에서 파일 다운로드 (req.file_path를 오브젝트 키로 사용)
             try:
-                _s3.download_file(settings.s3_bucket_name, req.file_path, str(local_path))
+                _s3.download_file(
+                    settings.s3_bucket_name, req.file_path, str(local_path)
+                )
             except ClientError as e:  # S3 클라이언트 에러 catch
                 error_code = e.response["Error"]["Code"]
                 if error_code in ["404", "NoSuchKey"]:  # 파일 없음 에러 처리
@@ -129,13 +136,14 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
                         status_code=404, detail="S3 객체를 찾을 수 없습니다."
                     )
                 # 다른 에러(예: 권한 문제)에 대한 핸들링 추가 (추천: 로그 기록)
-                raise HTTPException(status_code=500, detail=f"S3 다운로드 오류: {error_code} - {e}")
+                raise HTTPException(
+                    status_code=500, detail=f"S3 다운로드 오류: {error_code} - {e}"
+                )
 
             # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             genai.configure(api_key=settings.google_api_key)
             uploaded_doc_file = await genai.upload_file_async(
-                path=str(local_path), display_name=filename
                 path=str(local_path), display_name=filename
             )
 
@@ -230,6 +238,7 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
 
     # 저장된 결과 반환: AnalysisResultOut 모델로 반환 (result_id 포함)
     return saved_result
+
 
 # 분석 결과 조회 엔드포인트: result_id로 조회 (기존 유지)
 @evaluation_router.get(

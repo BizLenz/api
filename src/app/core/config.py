@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal, ClassVar
-import os
+
 
 class Settings(BaseSettings):
     """
@@ -57,7 +57,9 @@ class Settings(BaseSettings):
     api_cors_max_age: int = Field(default=86400, env="API_CORS_MAX_AGE")  # 24h
 
     # AWS S3
-    s3_bucket_name: str = Field(default="bizlenz-original-files-bucket-dev", env="S3_BUCKET_NAME")
+    s3_bucket_name: str = Field(
+        default="bizlenz-original-files-bucket-dev", env="S3_BUCKET_NAME"
+    )
     s3_upload_folder: str = Field(default="uploads", env="S3_UPLOAD_FOLDER")
     s3_processed_folder: str = Field(default="processed", env="S3_PROCESSED_FOLDER")
     s3_temp_folder: str = Field(default="temp", env="S3_TEMP_FOLDER")

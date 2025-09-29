@@ -63,14 +63,13 @@ def test_endpoints_exist():
     """라우터의 엔드포인트들이 등록되었는지 확인"""
     # FastAPI app의 routes 확인
     routes = [route.path for route in app.routes]
-    
+
     # 기대하는 경로들이 등록되었는지 확인
-    expected_paths = [
-        "/analysis/industry-data",
-        "/analysis/records/{action}"
-    ]
-    
+    expected_paths = ["/analysis/industry-data", "/analysis/records/{action}"]
+
     for path in expected_paths:
         # 경로가 존재하는지 확인 (path parameter는 정확히 매치되지 않을 수 있음)
-        path_exists = any(path.replace("{action}", "delete") in route for route in routes)
+        path_exists = any(
+            path.replace("{action}", "delete") in route for route in routes
+        )
         print(f"Path check: {path} -> {path_exists}")
