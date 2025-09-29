@@ -102,16 +102,18 @@ def downgrade() -> None:
 
     # --- 2) business_plans.user_id 다시 INTEGER로 변경 (FK 제거 후) ---
     op.drop_constraint('business_plans_user_id_fkey', 'business_plans', type_='foreignkey')
-    op.alter_column(
-        'business_plans',
-        'user_id',
-        existing_type=sa.String(length=255),
-        type_=sa.INTEGER(),
-        existing_comment='업로더 사용자',
-        existing_nullable=False,
-    )
+    
+    # PostgreSQL에서 명시적 타입 변환 (USING 절 사용)
+    op.execute("ALTER TABLE business_plans ALTER COLUMN user_id TYPE INTEGER USING user_id::integer")
 
     # --- 3) users.id 다시 INTEGER + 시퀀스 기본값 복구 ---
+    # PostgreSQL에서 명시적 타입 변환 (USING 절 사용)
+    op.execute("ALTER TABLE users ALTER COLUMN id TYPE INTEGER USING id::integer")
+    
+    # 시퀀스 기본값 복구
+    op.execute("ALTER TABLE users ALTER COLUMN id SET DEFAULT nextval('users_id_seq'::regclass)")
+    
+    # 컬럼 메타데이터 업데이트
     op.alter_column(
         'users',
         'id',
