@@ -29,7 +29,6 @@ def create_analysis_result(
     db.refresh(obj)
     return obj
 
-
 def get_analysis_result(db: Session, *, result_id: int) -> Optional[AnalysisResult]:
     """
     AnalysisResults 테이블에서 ID로 단일 레코드를 조회합니다.
