@@ -23,17 +23,6 @@ from app.database import Base
 # -----------------------
 class User(Base):
     __tablename__ = "users"
-<<<<<<< HEAD
-
-    id = Column(
-        String(255), primary_key=True, comment="Cognito Sub (서비스 내부 고유 ID)"
-    )
-    created_at = Column(
-        TIMESTAMP(timezone=True),
-        server_default=func.now(),
-        comment="서비스 프로필 생성 일시",
-    )
-=======
     id = Column(Integer, primary_key=True, index=True)  # 사용자 ID
     username = Column(String(50), unique=True, nullable=False)  # 사용자명 (UNIQUE)
     password_hash = Column(String(255), nullable=False)  # 해시된 비밀번호
@@ -41,7 +30,6 @@ class User(Base):
     phone_number = Column(String(20))  # 연락처
     address = Column(Text)  # 주소
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())  # 생성일시
->>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
     updated_at = Column(
         TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
     )  # 수정일시

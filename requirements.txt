@@ -23,11 +23,8 @@ python-jose[cryptography]
 
 # Testing
 pytest
-<<<<<<< HEAD
 pytest-asyncio>=0.21.0
 httpx
 pytest-mock
 moto[all]>=5.0.0
-=======
 requests
->>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f
