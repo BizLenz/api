@@ -21,7 +21,7 @@ from app.schemas.evaluation import (
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
 from app.core.security import require_scope
-from app.prompts.yeobi_startup import (
+from app.prompts.pre_startup import (
     SYSTEM_PROMPT,
     SECTION_ANALYSIS_PROMPT_TEMPLATE,
     FINAL_REPORT_PROMPT,
@@ -38,7 +38,12 @@ router = APIRouter()
 evaluation_router = APIRouter(dependencies=[Depends(require_scope("openid"))])
 
 # AWS S3 클라이언트 초기화: settings에서 region과 bucket 이름을 불러옴
-_s3 = boto3.client("s3", region_name=settings.aws_region)
+_s3 = boto3.client(
+    "s3",
+    aws_access_key_id=settings.aws_access_key_id,
+    aws_secret_access_key=settings.aws_secret_access_key,
+    region_name=settings.aws_region,
+)
 
 
 # 섹션 분석 함수: Gemini AI를 사용해 사업계획서 섹션을 분석
@@ -94,13 +99,6 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
         "text",
         f"### 분석 섹션: {criteria['section_name']}\n\n[ANALYSIS FAILED]\n\n---",
     )
-
-    # 응답 텍스트 추출 (실패 시 기본 텍스트 반환): AI 응답이 실패하면 기본 에러 메시지를 반환합니다.
-    text = getattr(
-        resp,
-        "text",
-        f"### 분석 섹션: {criteria['section_name']}\n\n[ANALYSIS FAILED]\n\n---",
-    )
     return {"criteria": criteria, "analysis_text": text}
 
 
@@ -118,11 +116,7 @@ async def create_analysis(
         with tempfile.TemporaryDirectory() as td:
             # file_path 사용 부분 1: 파일명 추출 (S3 키의 마지막 부분을 파일명으로 사용)
             filename = req.file_path.split("/")[-1] or "input.pdf"
-            # file_path 사용 부분 1: 파일명 추출 (S3 키의 마지막 부분을 파일명으로 사용)
-            filename = req.file_path.split("/")[-1] or "input.pdf"
             local_path = pathlib.Path(td) / filename
-
-            # file_path 사용 부분 2: S3에서 파일 다운로드 (req.file_path를 오브젝트 키로 사용)
 
             # file_path 사용 부분 2: S3에서 파일 다운로드 (req.file_path를 오브젝트 키로 사용)
             try:
@@ -131,16 +125,19 @@ async def create_analysis(
                 )
             except ClientError as e:  # S3 클라이언트 에러 catch
                 error_code = e.response["Error"]["Code"]
-                if error_code in ["404", "NoSuchKey"]:  # 파일 없음 에러 처리
+                if error_code in ["404", "NoSuchKey"]:
                     raise HTTPException(
                         status_code=404, detail="S3 객체를 찾을 수 없습니다."
                     )
-                # 다른 에러(예: 권한 문제)에 대한 핸들링 추가 (추천: 로그 기록)
-                raise HTTPException(
-                    status_code=500, detail=f"S3 다운로드 오류: {error_code} - {e}"
-                )
+                elif error_code == "403":
+                    raise HTTPException(
+                        status_code=403, detail="S3 접근 권한이 없습니다."
+                    )
+                else:
+                    raise HTTPException(
+                        status_code=500, detail=f"S3 다운로드 오류: {error_code} - {e}"
+                    )
 
-            # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             genai.configure(api_key=settings.google_api_key)
             uploaded_doc_file = await genai.upload_file_async(
