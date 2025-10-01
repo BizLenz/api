@@ -1,15 +1,31 @@
-python-jose
-starlette
-pydantic-settings
-sqlalchemy
-fastapi
-uvicorn
-boto3
-python-dotenv
-httpx
+# Framework & Server
+fastapi>=0.100.0
+uvicorn[standard]
+
+# Database
+sqlalchemy>=1.4.0
+alembic
+psycopg2-binary # PostgreSQL 드라이버 (RDS가 PostgreSQL일 경우)
+
+# AWS
+boto3>=1.28.0
+mangum>=0.17.0
+
+# Google GenAI
+google-generativeai==0.7.2
+
+# Settings Management
+pydantic-settings>=2.0.0
+
+# Authentication
+passlib[bcrypt]
+python-jose[cryptography]
+
+# Testing
 pytest
-pytest-asyncio
-pydantic
-google-generativeai
-botocore
-mangum
+pytest-asyncio>=0.21.0
+httpx
+pytest-mock
+moto[all]>=5.0.0
+requests
+>>>>>>> fda2ff50191ef08f3f62e0cdc2c5f38047512b0f

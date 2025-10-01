@@ -63,8 +63,9 @@ jobs:
         run: uv run uv-audit
 
 
-      #- name: Run Pytest
-         #run: uv run pytest          # 8. Pytest로 자동화 테스트 실행
+      - name: Run pytest
+        run: uv run pytest          # 8. Pytest로 자동화 테스트 실행
+
 
 
       - name: Build Docker image

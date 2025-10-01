@@ -79,6 +79,9 @@ class Settings(BaseSettings):
     cognito_client_id: str | None = Field(default=None, env="COGNITO_CLIENT_ID")
     cognito_client_secret: str | None = Field(default=None, env="COGNITO_CLIENT_SECRET")
 
+    # Google Gemini
+    google_api_key: str | None = Field(default=None, env="GOOGLE_API_KEY")
+
 
 class OtherSettings(BaseSettings):
     """
