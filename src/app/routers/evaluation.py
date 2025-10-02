@@ -83,12 +83,10 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
         model_name=settings.gemini_model_analysis, system_instruction=SYSTEM_PROMPT
     )
 
-
     resp = await model.generate_content_async(
         contents=[prompt, uploaded_doc_file],
         generation_config=types.GenerationConfig(temperature=0.0),
     )
-
 
     # 응답 텍스트 추출 (실패 시 기본 텍스트 반환): AI 응답이 실패하면 기본 에러 메시지를 반환합니다.
     text = getattr(
@@ -143,7 +141,6 @@ async def create_analysis(
             # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             genai.configure(api_key=settings.google_api_key)
             uploaded_doc_file = await genai.upload_file_async(
-                path=str(local_path), display_name=filename
                 path=str(local_path), display_name=filename
             )
 

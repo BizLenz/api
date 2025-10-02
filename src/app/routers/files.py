@@ -271,7 +271,7 @@ def delete_file(
             "message": "File deleted successfully",
             "deleted_file_id": file_id,
         }
-    
+
     except (ClientError, BotoCoreError) as s3_error:
         db.rollback()
         print(f"S3 deletion failed: {s3_error}")
