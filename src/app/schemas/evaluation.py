@@ -1,10 +1,13 @@
 # file: app/schemas/evaluation.py
 from __future__ import annotations
 from typing import Literal, Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator, condecimal
+from pydantic import BaseModel, Field, field_validator
+from datetime import datetime
+from decimal import Decimal
 
 
 class AnalysisCreateIn(BaseModel):
+    plan_id: int = Field(..., description="분석할 사업계획서 ID")
     contest_type: Literal["예비창업패키지"] = Field(default="예비창업패키지")
     file_path: str = Field(
         ..., description="이미 저장된 사업계획서 PDF의 S3 오브젝트 키"
@@ -61,10 +64,15 @@ class AnalysisResultOut(BaseModel):
     id: int
     analysis_job_id: int
     evaluation_type: str
-    score: Optional[condecimal(max_digits=5, decimal_places=2)] = None
+    score: Optional[Decimal] = Field(
+        default=None,
+        max_digits=5,
+        decimal_places=2,
+        description="분석 항목의 점수"
+    )
     summary: Optional[str] = None
     details: Dict[str, Any]
-    created_at: Optional[str] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True  # ORM 객체 → Pydantic 변환 허용
