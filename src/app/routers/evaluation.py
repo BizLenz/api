@@ -29,15 +29,13 @@ from app.prompts.pre_startup import (
 )
 from botocore.exceptions import ClientError
 
-# Google GenAI SDK (최신 방식 Import)
 import google.generativeai as genai
 from google.generativeai import types
+from functools import partial
 
-# FastAPI 라우터 정의: openid 스코프를 요구하여 인증된 사용자만 접근 가능
 router = APIRouter()
 evaluation_router = APIRouter(dependencies=[Depends(require_scope("openid"))])
 
-# AWS S3 클라이언트 초기화: settings에서 region과 bucket 이름을 불러옴
 _s3 = boto3.client(
     "s3",
     aws_access_key_id=settings.aws_access_key_id,
@@ -45,6 +43,11 @@ _s3 = boto3.client(
     region_name=settings.aws_region,
 )
 
+async def upload_file_async(path: str, display_name: str):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None, partial(genai.upload_file, path=str(path), display_name=display_name)
+    )
 
 # 섹션 분석 함수: Gemini AI를 사용해 사업계획서 섹션을 분석
 # uploaded_doc_file: Gemini에 업로드된 파일 객체
@@ -138,9 +141,8 @@ async def create_analysis(
                     )
 
             # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
-            # Gemini 클라이언트 설정 및 파일 업로드: Google API 키를 settings에서 불러와 사용합니다.
             genai.configure(api_key=settings.google_api_key)
-            uploaded_doc_file = await genai.upload_file_async(
+            uploaded_doc_file = await upload_file_async(
                 path=str(local_path), display_name=filename
             )
 
