@@ -2,9 +2,11 @@
 from __future__ import annotations
 from typing import Literal, Optional, Dict, Any
 from pydantic import BaseModel, Field, field_validator, condecimal
+from datetime import datetime
 
 
 class AnalysisCreateIn(BaseModel):
+    plan_id: int = Field(..., description="분석할 사업계획서 ID")
     contest_type: Literal["예비창업패키지"] = Field(default="예비창업패키지")
     file_path: str = Field(
         ..., description="이미 저장된 사업계획서 PDF의 S3 오브젝트 키"
@@ -39,9 +41,13 @@ class AnalysisResultCreateIn(BaseModel):
     evaluation_type: Literal["overall", "market", "industry", "feedback"] = Field(
         ..., description="평가 유형"
     )
-    score: Optional[condecimal(max_digits=5, decimal_places=2)] = Field(
-        None, description="점수(0.00~100.00)"
+    score: Optional[Decimal] = Field(
+    default=None,                   
+    max_digits=5,                   
+    decimal_places=2,
+    description="점수(0.00~100.00)" 
     )
+    
     summary: Optional[str] = Field(None, description="요약")
     details: Dict[str, Any] = Field(
         default_factory=dict, description="분석 상세 JSON 데이터(JSONB로 저장)"
@@ -64,7 +70,7 @@ class AnalysisResultOut(BaseModel):
     score: Optional[condecimal(max_digits=5, decimal_places=2)] = None
     summary: Optional[str] = None
     details: Dict[str, Any]
-    created_at: Optional[str] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True  # ORM 객체 → Pydantic 변환 허용
