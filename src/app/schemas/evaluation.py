@@ -71,7 +71,7 @@ class AnalysisResultOut(BaseModel):
     summary: Optional[str] = None
     details: Dict[str, Any]
     created_at: datetime
-
+    
     class Config:
         from_attributes = True  # ORM 객체 → Pydantic 변환 허용
 

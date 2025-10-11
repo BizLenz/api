@@ -267,18 +267,17 @@ async def create_analysis(
     return {
         "message": "분석 요청이 성공적으로 처리되었습니다.",
         "analysis_job_id": new_job.id,
-        "status": new_job.status, # "completed" 상태가 반환됩니다.
+        "status": new_job.status,
     }
 
-# 분석 결과 조회 엔드포인트: result_id로 조회 (기존 유지)
 @evaluation_router.get(
-    "/results/{result_id}",
+    "/results/{plan_id}",
     response_model=AnalysisResultOut,
-    summary="분석 결과 단건 조회",
-    description="기본 키(result_id)로 저장된 분석 결과 레코드를 조회(SELECT)합니다.",
+    summary="Get analysis result for a specific plan_id",
+    description="Get the analysis result for a specific plan_id",
 )
-def get_result_endpoint(result_id: int, db: Session = Depends(get_db)):
-    obj = get_analysis_result(db, result_id=result_id)
+def get_result_endpoint(plan_id: int, db: Session = Depends(get_db)):
+    obj = get_analysis_result(db, plan_id=plan_id)
     if not obj:
         raise HTTPException(status_code=404, detail="analysis result not found")
     return obj

@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import Optional, Dict, Any
+from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models.models import AnalysisResult
+from app.models.models import AnalysisResult, AnalysisJob
 
 
 def create_analysis_result(
@@ -14,8 +15,8 @@ def create_analysis_result(
     details: Dict[str, Any],
 ) -> AnalysisResult:
     """
-    AnalysisResults 테이블에 새 레코드(행)를 INSERT 합니다.
-    - flush/commit 후 refresh로 생성된 PK/타임스탬프를 채워 반환합니다.
+    INSERT new record into AnalysisResult table.
+    - flush/commit and refresh to fill the PK/timestamp.
     """
     obj = AnalysisResult(
         analysis_job_id=analysis_job_id,
@@ -29,9 +30,32 @@ def create_analysis_result(
     db.refresh(obj)
     return obj
 
+ 
+def get_analysis_result(
+    db: Session, *, plan_id: int
+) -> Optional[AnalysisResult]:
+    """
+    Get the latest AnalysisResult associated with the latest AnalysisJob for a specific plan_id.
 
-def get_analysis_result(db: Session, *, result_id: int) -> Optional[AnalysisResult]:
+    - db (Session): Database session
+    - plan_id (int): ID of the plan (business plan) to query
     """
-    AnalysisResults 테이블에서 ID로 단일 레코드를 조회합니다.
-    """
-    return db.query(AnalysisResult).filter(AnalysisResult.id == result_id).first()
+
+    latest_job_query = (
+        db.query(AnalysisJob.id)
+        .filter(AnalysisJob.plan_id == plan_id)
+        .order_by(AnalysisJob.id.desc())
+        .limit(1)
+        .subquery()
+    )
+    
+    latest_job_query = select(AnalysisJob.id).order_by(AnalysisJob.created_at.desc()).limit(1)
+    latest_job_id = db.execute(latest_job_query).scalar_one_or_none()
+    if latest_job_id is None:
+        return None
+
+    return (
+        db.query(AnalysisResult)
+        .filter(AnalysisResult.analysis_job_id == latest_job_id)
+        .first()
+    )
