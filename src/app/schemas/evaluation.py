@@ -1,9 +1,8 @@
 # file: app/schemas/evaluation.py
 from __future__ import annotations
 from typing import Literal, Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, condecimal
 from datetime import datetime
-from decimal import Decimal
 
 
 class AnalysisCreateIn(BaseModel):
@@ -42,9 +41,13 @@ class AnalysisResultCreateIn(BaseModel):
     evaluation_type: Literal["overall", "market", "industry", "feedback"] = Field(
         ..., description="평가 유형"
     )
-    score: Optional[condecimal(max_digits=5, decimal_places=2)] = Field(
-        None, description="점수(0.00~100.00)"
+    score: Optional[Decimal] = Field(
+    default=None,                   
+    max_digits=5,                   
+    decimal_places=2,
+    description="점수(0.00~100.00)" 
     )
+    
     summary: Optional[str] = Field(None, description="요약")
     details: Dict[str, Any] = Field(
         default_factory=dict, description="분석 상세 JSON 데이터(JSONB로 저장)"
@@ -64,12 +67,7 @@ class AnalysisResultOut(BaseModel):
     id: int
     analysis_job_id: int
     evaluation_type: str
-    score: Optional[Decimal] = Field(
-        default=None,
-        max_digits=5,
-        decimal_places=2,
-        description="분석 항목의 점수"
-    )
+    score: Optional[condecimal(max_digits=5, decimal_places=2)] = None
     summary: Optional[str] = None
     details: Dict[str, Any]
     created_at: datetime

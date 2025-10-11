@@ -181,6 +181,7 @@ async def create_analysis(
                 ),
             )
             report_json = getattr(final_resp, "text", "{}")
+            print(f"DEBUG: Gemini로부터 받은 실제 응답: {report_json}") # <-- 디버깅을 위한 로그 추가
 
         # 수정된 부분: 분석 결과(report_json)를 파싱하여 DB에 저장
         # report_json을 딕셔너리로 변환 (파싱 실패 시 기본값 설정)
