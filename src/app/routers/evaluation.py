@@ -100,6 +100,50 @@ async def _analyze_section(uploaded_doc_file: types.File, criteria: dict) -> dic
     )
     return {"criteria": criteria, "analysis_text": text}
 
+def transform_gemini_report(report_json: str) -> Dict[str, Any]:
+    """
+    Gemini LLM이 생성한 상세 보고서 JSON 문자열을
+    DB에 저장할 형식(score, summary, details)으로 변환합니다.
+
+    Args:
+        report_json (str): LLM으로부터 받은 원본 JSON 문자열
+
+    Returns:
+        Dict[str, Any]: {'score': ..., 'summary': ..., 'details': ...} 형태의 딕셔너리
+    """
+    try:
+        # 1. 원본 JSON 문자열을 파이썬 딕셔너리로 로드합니다.
+        llm_data = json.loads(report_json)
+
+        # 2. 'score' 필드 추출: LLM 응답의 'total_score' 키를 사용합니다.
+        #    .get()을 사용하여 키가 없더라도 오류 없이 None을 반환하도록 합니다.
+        score = llm_data.get("total_score")
+
+        # 3. 'summary' 필드 추출: LLM 응답의 'overall_assessment' 키를 사용합니다.
+        summary = llm_data.get("overall_assessment", "") # 키가 없으면 빈 문자열을 반환
+
+        # 4. 'details' 필드 구성: 원본 데이터에서 이미 추출한 정보를 제외한
+        #    나머지 모든 상세 정보를 포함시킵니다.
+        #    이렇게 하면 원본의 풍부한 정보를 잃지 않고 저장할 수 있습니다.
+        details = dict(llm_data) # 원본 딕셔너리를 복사합니다.
+        details.pop("total_score", None)        # 이미 사용한 키는 details에서 제거하여
+        details.pop("overall_assessment", None) # 데이터 중복을 방지합니다.
+
+        # 5. 최종적으로 변환된 딕셔너리를 반환합니다.
+        return {
+            "score": score,
+            "summary": summary,
+            "details": details
+        }
+
+    except (json.JSONDecodeError, AttributeError):
+        # JSON 파싱에 실패하거나, 입력값이 문자열이 아닌 경우 등
+        # 예외 상황에서는 빈 기본값을 반환하여 시스템 안정성을 확보합니다.
+        return {
+            "score": None,
+            "summary": "",
+            "details": {}
+        }
 
 # 분석 요청 엔드포인트: 사업계획서 PDF를 S3에서 다운로드하고 분석 후 DB에 저장
 @evaluation_router.post(
@@ -180,14 +224,13 @@ async def create_analysis(
                     response_mime_type="application/json",
                 ),
             )
-            report_json = getattr(final_resp, "text", "{}")
-            print(f"DEBUG: Gemini로부터 받은 실제 응답: {report_json}") # <-- 디버깅을 위한 로그 추가
+            report_json = getattr(final_resp, "text", "")
 
         # 수정된 부분: 분석 결과(report_json)를 파싱하여 DB에 저장
         # report_json을 딕셔너리로 변환 (파싱 실패 시 기본값 설정)
         try:
-            report_data = json.loads(report_json)
-            score = report_data.get("score")  # report_json에 score 필드가 있다고 가정
+            report_data = transform_gemini_report(report_json)
+            score = report_data["score"]  # report_json에 score 필드가 있다고 가정
             summary = report_data.get("summary", "")  # 요약 필드
             details = report_data.get("details", {})  # 상세 내용 (JSON으로 저장 가능)
         except json.JSONDecodeError:
