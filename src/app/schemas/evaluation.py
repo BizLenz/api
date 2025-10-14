@@ -74,3 +74,15 @@ class AnalysisResultOut(BaseModel):
 
     class Config:
         from_attributes = True  # ORM 객체 → Pydantic 변환 허용
+
+
+class AnalysisRequestAck(BaseModel):
+    message: str = Field(
+        default="분석 요청이 정상적으로 접수되었습니다. 백그라운드에서 처리가 시작됩니다.",
+        description="응답 메시지"
+    )
+    analysis_job_id: int = Field(..., description="생성된 분석 작업의 고유 ID")
+    status: str = Field(default="pending", description="분석 작업의 초기 상태")
+
+    class Config:
+        from_attributes = True

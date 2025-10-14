@@ -17,6 +17,7 @@ from app.database import get_db
 from app.schemas.evaluation import (
     AnalysisCreateIn,
     AnalysisResultOut,  # 반환 모델로 사용 (result_id 포함)
+    AnalysisRequestAck,
 )
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.core.config import settings
@@ -148,28 +149,28 @@ def transform_gemini_report(report_json: str) -> Dict[str, Any]:
 # 분석 요청 엔드포인트: 사업계획서 PDF를 S3에서 다운로드하고 분석 후 DB에 저장
 @evaluation_router.post(
     "/request",
-    response_model=AnalysisResultOut,
-    status_code=status.HTTP_201_CREATED,  # 반환 모델을 AnalysisResultOut으로 변경 (DB 저장 결과 포함)
+    response_model=AnalysisRequestAck, # 응답 모델은 간단한 확인 메시지를 위한 AnalysisRequestAck 입니다.
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="사업계획서 분석 요청 및 저장",
+    description="S3에 저장된 사업계획서 PDF를 다운로드하여 Gemini AI로 분석을 수행하고, 결과를 DB에 저장합니다. 동기적으로 처리되며, 완료 후 확인 메시지를 반환합니다.",
 )
 async def create_analysis(
     req: AnalysisCreateIn, db: Session = Depends(get_db)
 ):  # DB 세션 추가: Depends(get_db)로 SQLAlchemy 세션을 주입합니다.
     try:
         new_job = AnalysisJob(
-            plan_id=req.plan_id,  
+            plan_id=req.plan_id,
             job_type=req.contest_type,
             status="processing",
         )
         db.add(new_job)
-        db.flush()   
-             
+        db.flush()
+
         # 임시 디렉토리 생성: 파일 다운로드 후 자동 삭제
         with tempfile.TemporaryDirectory() as td:
             # file_path 사용 부분 1: 파일명 추출 (S3 키의 마지막 부분을 파일명으로 사용)
             filename = req.file_path.split("/")[-1] or "input.pdf"
             local_path = pathlib.Path(td) / filename
-
-            # file_path 사용 부분 2: S3에서 파일 다운로드 (req.file_path를 오브젝트 키로 사용)
 
             # file_path 사용 부분 2: S3에서 파일 다운로드 (req.file_path를 오브젝트 키로 사용)
             try:
@@ -204,6 +205,7 @@ async def create_analysis(
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks), timeout=req.timeout_sec
             )
+            
             # 최종 보고서 프롬프트 생성 및 JSON 보고서 생성
             structured_parts = [
                 f"<item>\n<metadata>\n  section_name: {r['criteria']['section_name']}\n  main_category: {r['criteria']['main_category']}\n  category_max_score: {r['criteria']['category_max_score']}\n  category_min_score: {r['criteria']['category_min_score']}\n</metadata>\n<analysis>\n{r['analysis_text']}\n</analysis>\n</item>"
@@ -236,8 +238,7 @@ async def create_analysis(
         except json.JSONDecodeError:
             raise HTTPException(status_code=500, detail="보고서 JSON 파싱 오류")
 
-        # DB 저장: create_analysis_result 호출 (analysis_job_id는 요청에서 생성하거나 임시로 설정, 여기서는 예시로 'req.contest_type'을 사용)
-        # 주의: 실제로 analysis_job_id는 유니크하게 생성해야 합니다. (예: UUID 사용 추천)
+        # DB 저장: create_analysis_result 호출
         saved_result = create_analysis_result(
             db,
             analysis_job_id=new_job.id,
@@ -248,7 +249,8 @@ async def create_analysis(
         )
         new_job.status = "completed"
         db.commit()
-        db.refresh(saved_result)
+        # 변경점 1: 반환 값에 필요한 new_job 객체의 최신 상태(status='completed')를 DB로부터 가져옵니다.
+        db.refresh(new_job)
 
     except asyncio.TimeoutError:
         db.rollback() 
@@ -260,9 +262,13 @@ async def create_analysis(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"분석 중 오류: {e}")
 
-    # 저장된 결과 반환: AnalysisResultOut 모델로 반환 (result_id 포함)
-    return saved_result
-
+    # 변경점 2: 기존의 saved_result 전체를 반환하는 대신,
+    # 피드백을 반영하여 요청 처리 완료를 알리는 간단한 확인 메시지를 반환합니다.
+    return {
+        "message": "분석 요청이 성공적으로 처리되었습니다.",
+        "analysis_job_id": new_job.id,
+        "status": new_job.status, # "completed" 상태가 반환됩니다.
+    }
 
 # 분석 결과 조회 엔드포인트: result_id로 조회 (기존 유지)
 @evaluation_router.get(
