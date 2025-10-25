@@ -41,13 +41,20 @@ _s3 = boto3.client(
     region_name=settings.aws_region,
 )
 
+
 async def upload_file_async(client: genai.Client, path: str, display_name: str):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(
-        None, partial(client.files.upload, path=str(path), config={display_name: display_name})
+        None,
+        partial(
+            client.files.upload, path=str(path), config={display_name: display_name}
+        ),
     )
 
-async def _analyze_section(client: genai.Client, uploaded_doc_file: File, criteria: dict) -> dict:
+
+async def _analyze_section(
+    client: genai.Client, uploaded_doc_file: File, criteria: dict
+) -> dict:
     pillars_description = []
     pillar_scoring_format = []
     for pillar_name, pillar_data in criteria["pillars"].items():
@@ -72,7 +79,7 @@ async def _analyze_section(client: genai.Client, uploaded_doc_file: File, criter
         pillar_scoring_format="\n".join(pillar_scoring_format),
     )
 
-    response = await client.models.generate_content(
+    response = client.models.generate_content(
         model=settings.gemini_model_analysis,
         contents=[prompt, uploaded_doc_file],
         config=GenerateContentConfig(
@@ -87,6 +94,7 @@ async def _analyze_section(client: genai.Client, uploaded_doc_file: File, criter
         f"### 분석 섹션: {criteria['section_name']}\n\n[ANALYSIS FAILED]\n\n---",
     )
     return {"criteria": criteria, "analysis_text": text}
+
 
 def transform_gemini_report(report_json: str) -> Dict[str, Any]:
     """
@@ -110,18 +118,11 @@ def transform_gemini_report(report_json: str) -> Dict[str, Any]:
         details.pop("total_score", None)
         details.pop("overall_assessment", None)
 
-        return {
-            "score": score,
-            "summary": summary,
-            "details": details
-        }
+        return {"score": score, "summary": summary, "details": details}
 
     except (json.JSONDecodeError, AttributeError):
-        return {
-            "score": None,
-            "summary": "",
-            "details": {}
-        }
+        return {"score": None, "summary": "", "details": {}}
+
 
 @evaluation_router.post(
     "/request",
@@ -130,9 +131,7 @@ def transform_gemini_report(report_json: str) -> Dict[str, Any]:
     summary="사업계획서 분석 요청 및 저장",
     description="S3에 저장된 사업계획서 PDF를 다운로드하여 Gemini AI로 분석을 수행하고, 결과를 DB에 저장합니다. 동기적으로 처리되며, 완료 후 확인 메시지를 반환합니다.",
 )
-async def create_analysis(
-    req: AnalysisCreateIn, db: Session = Depends(get_db)
-):
+async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
     try:
         new_job = AnalysisJob(
             plan_id=req.plan_id,
@@ -167,18 +166,17 @@ async def create_analysis(
 
             client = genai.Client(api_key=settings.google_api_key)
             uploaded_doc_file = client.files.upload(
-                file=str(local_path), config=UploadFileConfig(
-                        display_name=filename
-                )
+                file=str(local_path), config=UploadFileConfig(display_name=filename)
             )
 
             tasks = [
-                _analyze_section(client, uploaded_doc_file, c) for c in EVALUATION_CRITERIA
+                _analyze_section(client, uploaded_doc_file, c)
+                for c in EVALUATION_CRITERIA
             ]
             results = await asyncio.wait_for(
                 asyncio.gather(*tasks), timeout=req.timeout_sec
             )
-            
+
             structured_parts = [
                 f"<item>\n<metadata>\n  section_name: {r['criteria']['section_name']}\n  main_category: {r['criteria']['main_category']}\n  category_max_score: {r['criteria']['category_max_score']}\n  category_min_score: {r['criteria']['category_min_score']}\n</metadata>\n<analysis>\n{r['analysis_text']}\n</analysis>\n</item>"
                 for r in results
@@ -220,10 +218,10 @@ async def create_analysis(
         db.refresh(new_job)
 
     except asyncio.TimeoutError:
-        db.rollback() 
+        db.rollback()
         raise HTTPException(status_code=504, detail="분석 타임아웃")
     except HTTPException:
-        db.rollback() 
+        db.rollback()
         raise
     except Exception as e:
         db.rollback()
@@ -234,6 +232,7 @@ async def create_analysis(
         "analysis_job_id": new_job.id,
         "status": new_job.status,
     }
+
 
 @evaluation_router.get(
     "/results/{plan_id}",

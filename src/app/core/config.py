@@ -82,7 +82,9 @@ class Settings(BaseSettings):
     # Google Gemini
     google_api_key: str | None = Field(default=None, env="GOOGLE_API_KEY")
     # TODO: get model from user req
-    gemini_model_analysis: str = Field(default="gemini-2.5-flash", env="GEMINI_MODEL_ANALYSIS")
+    gemini_model_analysis: str = Field(
+        default="gemini-2.5-flash", env="GEMINI_MODEL_ANALYSIS"
+    )
 
 
 class OtherSettings(BaseSettings):

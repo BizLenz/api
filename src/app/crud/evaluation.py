@@ -30,10 +30,8 @@ def create_analysis_result(
     db.refresh(obj)
     return obj
 
- 
-def get_analysis_result(
-    db: Session, *, plan_id: int
-) -> Optional[AnalysisResult]:
+
+def get_analysis_result(db: Session, *, plan_id: int) -> Optional[AnalysisResult]:
     """
     Get the latest AnalysisResult associated with the latest AnalysisJob for a specific plan_id.
 
@@ -48,8 +46,10 @@ def get_analysis_result(
         .limit(1)
         .subquery()
     )
-    
-    latest_job_query = select(AnalysisJob.id).order_by(AnalysisJob.created_at.desc()).limit(1)
+
+    latest_job_query = (
+        select(AnalysisJob.id).order_by(AnalysisJob.created_at.desc()).limit(1)
+    )
     latest_job_id = db.execute(latest_job_query).scalar_one_or_none()
     if latest_job_id is None:
         return None
