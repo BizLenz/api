@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models.models import AnalysisResult, AnalysisJob
+from app.models.models import AnalysisResult, AnalysisJob, BusinessPlan
 
 
 def create_analysis_result(
@@ -28,6 +28,24 @@ def create_analysis_result(
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    # Update business_plans.latest_job_id
+    job = (
+        db.query(AnalysisJob)
+        .filter(AnalysisJob.id == analysis_job_id)
+        .first()
+    )
+    if job:
+        plan = (
+            db.query(BusinessPlan)
+            .filter(BusinessPlan.id == job.plan_id)
+            .first()
+        )
+        if plan:
+            plan.latest_job_id = analysis_job_id
+            db.commit()
+            db.refresh(plan)
+
     return obj
 
 
