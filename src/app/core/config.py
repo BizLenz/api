@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Literal, ClassVar
+from typing import Literal
 
 
 class Settings(BaseSettings):
-    """
-    Environment-based configuration.
-    """
+    """Environment-based configuration"""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -66,6 +64,10 @@ class Settings(BaseSettings):
         default=True, env="API_CORS_ALLOW_CREDENTIALS"
     )
     api_cors_max_age: int = Field(default=86400, env="API_CORS_MAX_AGE")  # 24 h
+    # Set CORS_ALLOWED_ORIGINS to a JSON array, e.g. '["https://app.example.com"]'
+    cors_allowed_origins: list[str] = Field(
+        default=["http://localhost:3000"], env="CORS_ALLOWED_ORIGINS"
+    )
 
     # Google Gemini
     google_api_key: str | None = Field(default=None, env="GOOGLE_API_KEY")
@@ -74,16 +76,5 @@ class Settings(BaseSettings):
     )
 
 
-class OtherSettings(BaseSettings):
-    """Static / class-level settings not sourced from environment variables."""
-
-    max_Size: ClassVar[int] = 50 * 1024 * 1024
-
-    ALLOWED_ORIGINS: ClassVar[list[str]] = [
-        "http://localhost:3000",
-    ]
-
-
 # Global settings instance
 settings = Settings()
-other_settings = OtherSettings()

@@ -9,7 +9,7 @@ from typing import Iterable, Tuple, List, Dict, Any
 from fastapi import FastAPI, APIRouter, Request, Response
 import app.routers as routers_package
 from .health import health_router
-from app.core.config import settings, OtherSettings
+from app.core.config import settings
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -63,11 +63,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
-ALLOWED_ORIGINS = OtherSettings.ALLOWED_ORIGINS
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
+    allow_origins=settings.cors_allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["Authorization", "Content-Type"],

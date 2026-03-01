@@ -126,7 +126,7 @@ def upload(
                 "Key": s3_full_key,
                 "ContentType": file_details.mime_type,
             },
-            ExpiresIn=300,
+            ExpiresIn=settings.presigned_url_expiration,
         )
 
         return {
@@ -312,7 +312,7 @@ def download_file(
         presigned_url = s3_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": settings.storage_bucket_name, "Key": s3_key},
-            ExpiresIn=300,
+            ExpiresIn=settings.presigned_url_expiration,
         )
         return {
             "success": True,

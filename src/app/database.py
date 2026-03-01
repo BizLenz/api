@@ -1,9 +1,14 @@
+import logging
 import os
 from pathlib import Path
 from urllib.parse import quote_plus
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
+
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_db_url() -> str:
@@ -24,7 +29,7 @@ def get_db_url() -> str:
 
     env_path = Path(__file__).resolve().parents[2] / ".env"
     if not env_path.exists():
-        print(f"Warning: .env file not found at {env_path}, using SQLite")
+        logger.warning("Warning: .env file not found at %s, using SQLite", env_path)
         return "sqlite:///:memory:"
 
     db_user = settings.db_user
@@ -34,9 +39,9 @@ def get_db_url() -> str:
     db_name = settings.db_name
 
     if not all([db_user, db_pass, db_host, db_port, db_name]):
-        if os.getenv("ENV") == "production":
+        if os.getenv("ENVIRONMENT") == "production":
             raise RuntimeError("Missing required database environment variables")
-        print("Warning: incomplete DB config, using SQLite")
+        logger.warning("Incomplete DB config, using SQLite")
         return "sqlite:///:memory:"
 
     safe_user = quote_plus(db_user)
