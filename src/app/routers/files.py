@@ -343,22 +343,7 @@ def get_all_files_admin(
             .offset(offset)
             .all()
         )
-        return {
-            "success": True,
-            "results": [
-                {
-                    "id": f.id,
-                    "file_name": f.file_name,
-                    "status": f.status,
-                    "file_size": f.file_size,
-                    "mime_type": f.mime_type,
-                    "created_at": f.created_at.isoformat() if f.created_at else None,
-                    "user_id": f.user_id,
-                    "latest_job_id": f.latest_job_id,
-                }
-                for f in _files
-            ],
-        }
+        return {"success": True, "results": [serialize_business_plan(f) for f in _files]}
     except Exception:
         logger.exception("Error retrieving all files (admin)")
         raise HTTPException(status_code=500, detail="Error retrieving all files")
@@ -390,22 +375,7 @@ def search_all_files_admin(
                 )
             query = query.filter(BusinessPlan.status == status_filter)
         _files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
-        return {
-            "success": True,
-            "results": [
-                {
-                    "id": f.id,
-                    "file_name": f.file_name,
-                    "status": f.status,
-                    "file_size": f.file_size,
-                    "mime_type": f.mime_type,
-                    "created_at": f.created_at.isoformat() if f.created_at else None,
-                    "user_id": f.user_id,
-                    "latest_job_id": f.latest_job_id,
-                }
-                for f in _files
-            ],
-        }
+        return {"success": True, "results": [serialize_business_plan(f) for f in _files]}
     except HTTPException:
         raise
     except Exception:
