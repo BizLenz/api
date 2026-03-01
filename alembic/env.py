@@ -1,3 +1,4 @@
+import logging
 import sys
 from pathlib import Path
 
@@ -5,6 +6,8 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
 import os
 from logging.config import fileConfig
+
+logger = logging.getLogger("alembic.env")
 
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
@@ -69,19 +72,16 @@ try:
     config.set_main_option("sqlalchemy.url", DATABASE_URL)
     
     if os.getenv("TESTING") == "docker":
-        print(f"Docker 테스트 환경: PostgreSQL {db_info['host']}:{db_info['port']}/{db_info['db']}")
+        logger.info("Docker test env: PostgreSQL %s:%s/%s", db_info['host'], db_info['port'], db_info['db'])
     elif os.getenv("TESTING") == "true":
-        print("테스트 환경: SQLite 메모리 DB 사용")
+        logger.info("Test env: SQLite in-memory DB")
     else:
-        print(
-            f"데이터베이스 연결 설정 완료: {db_info['user']}@{db_info['host']}:{db_info['port']}/{db_info['name']}"
-        )
+        logger.info("DB connection configured: %s@%s:%s/%s", db_info['user'], db_info['host'], db_info['port'], db_info['name'])
 except ValueError as e:
-    print(f"환경변수 설정 오류: {e}")
-    print(".env 파일을 확인하고 필수 환경변수를 설정해주세요.")
+    logger.error("Environment variable error: %s", e)
     sys.exit(1)
 except Exception as e:
-    print(f"예상치 못한 오류: {e}")
+    logger.error("Unexpected error: %s", e)
     sys.exit(1)
 
 
@@ -114,8 +114,7 @@ def run_migrations_online() -> None:
                 context.run_migrations()
 
     except Exception as e:
-        print(f"데이터베이스 연결 실패: {e}")
-        print("데이터베이스 서버 상태와 연결 정보를 확인해주세요.")
+        logger.error("Database connection failed: %s", e)
         raise
 
 
