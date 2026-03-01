@@ -1,5 +1,10 @@
+import logging
+
+from fastapi import HTTPException
+
 from .config import settings
-from fastapi import HTTPException, logger
+
+logger = logging.getLogger(__name__)
 
 
 # TODO: Add more specific exception handling
@@ -7,7 +12,7 @@ def to_http_exception(error: Exception) -> HTTPException:
     if isinstance(error, HTTPException):
         return error
 
-    logger.logger.error(f"Unhandled exception: {error}", exc_info=True)
+    logger.error(f"Unhandled exception: {error}", exc_info=True)
 
     if settings.debug:
         detail_message = str(error)
