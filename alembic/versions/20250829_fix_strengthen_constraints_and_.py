@@ -27,15 +27,15 @@ def upgrade() -> None:
         "retry_count",
         existing_type=sa.INTEGER(),
         nullable=False,
-        existing_comment="재시도 횟수",
+        existing_comment="Retry count",
         existing_server_default=sa.text("0"),
     )
     op.alter_column(
         "analysis_jobs",
         "s3_key",
         existing_type=sa.VARCHAR(length=500),
-        comment="S3 객체 키",
-        existing_comment="S3 객체 키 (파일 경로)",
+        comment="S3 object key",
+        existing_comment="S3 object key (file path)",
         existing_nullable=True,
     )
     op.alter_column(
@@ -45,15 +45,15 @@ def upgrade() -> None:
             "pending", "uploading", "completed", "failed", name="upload_status_enum"
         ),
         nullable=False,
-        existing_comment="S3 업로드 상태",
+        existing_comment="S3 upload status",
         existing_server_default=sa.text("'pending'::upload_status_enum"),
     )
     op.alter_column(
         "analysis_results",
         "details",
         existing_type=postgresql.JSONB(astext_type=sa.Text()),
-        comment="분석 상세 데이터(JSONB)",
-        existing_comment="분석 유형별 특화 데이터 저장소 (모든 상세 평가 데이터 통합)",
+        comment="Detailed analysis data (JSONB)",
+        existing_comment="Type-specific analysis data store (all detailed evaluation data)",
         existing_nullable=True,
     )
     op.alter_column(
@@ -61,135 +61,135 @@ def upgrade() -> None:
         "status",
         existing_type=sa.VARCHAR(length=20),
         nullable=False,
-        existing_comment="분석 상태 (pending, processing, completed, failed)",
+        existing_comment="Analysis status (pending, processing, completed, failed)",
         existing_server_default=sa.text("'pending'::character varying"),
     )
     op.alter_column(
         "business_plans",
         "latest_job_id",
         existing_type=sa.INTEGER(),
-        comment="가장 최근 분석 작업 ID",
-        existing_comment="가장 최근 분석 작업 ID (상태 조회용)",
+        comment="Most recent analysis job ID",
+        existing_comment="Most recent analysis job ID (for status lookup)",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "year",
         existing_type=sa.INTEGER(),
-        comment="데이터 기준 연도",
-        existing_comment="데이터의 기준 연도",
+        comment="Data reference year",
+        existing_comment="Data reference year",
         existing_nullable=False,
     )
     op.alter_column(
         "competitor_analysis",
         "revenue",
         existing_type=sa.NUMERIC(precision=20, scale=2),
-        comment="연간 매출액",
-        existing_comment="경쟁사 연간 매출액",
+        comment="Annual revenue",
+        existing_comment="Competitor annual revenue",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "operating_profit",
         existing_type=sa.NUMERIC(precision=20, scale=2),
-        comment="연간 영업이익",
-        existing_comment="경쟁사 연간 영업이익",
+        comment="Annual operating profit",
+        existing_comment="Competitor annual operating profit",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "debt_ratio",
         existing_type=sa.NUMERIC(precision=10, scale=2),
-        comment="부채 비율",
-        existing_comment="경쟁사 부채 비율",
+        comment="Debt ratio",
+        existing_comment="Competitor debt ratio",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "source",
         existing_type=sa.VARCHAR(length=255),
-        comment="데이터 출처",
-        existing_comment="데이터의 출처",
+        comment="Data source",
+        existing_comment="Data source",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "year",
         existing_type=sa.INTEGER(),
-        comment="데이터 기준 연도",
-        existing_comment="데이터의 기준 연도",
+        comment="Data reference year",
+        existing_comment="Data reference year",
         existing_nullable=False,
     )
     op.alter_column(
         "market_analysis",
         "total_revenue",
         existing_type=sa.NUMERIC(precision=20, scale=2),
-        comment="전체 시장 매출액",
-        existing_comment="(A) 해당 연도 전체 시장 매출액",
+        comment="Total market revenue",
+        existing_comment="(A) Total market revenue for this year",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "cagr",
         existing_type=sa.NUMERIC(precision=5, scale=2),
-        comment="연평균 성장률 (%)",
-        existing_comment="(A) 연평균 성장률 (%)",
+        comment="CAGR (%)",
+        existing_comment="(A) CAGR (%)",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "growth_drivers",
         existing_type=sa.TEXT(),
-        comment="시장 성장 동인",
-        existing_comment="(A) 시장 성장 동인",
+        comment="Market growth drivers",
+        existing_comment="(A) Market growth drivers",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "customer_group",
         existing_type=sa.VARCHAR(length=100),
-        comment="주요 고객군",
-        existing_comment="(C) 주요 고객군",
+        comment="Primary customer segment",
+        existing_comment="(C) Primary customer segment",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "avg_purchase_value",
         existing_type=sa.NUMERIC(precision=15, scale=2),
-        comment="평균 구매 금액",
-        existing_comment="(C) 평균 구매 금액",
+        comment="Average purchase value",
+        existing_comment="(C) Average purchase value",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "nps",
         existing_type=sa.NUMERIC(precision=5, scale=2),
-        comment="순추천지수",
-        existing_comment="(C) 순추천지수",
+        comment="Net Promoter Score (NPS)",
+        existing_comment="(C) Net Promoter Score (NPS)",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "retention_rate",
         existing_type=sa.NUMERIC(precision=5, scale=2),
-        comment="고객 유지율",
-        existing_comment="(C) 고객 유지율",
+        comment="Customer retention rate",
+        existing_comment="(C) Customer retention rate",
         existing_nullable=True,
     )
     op.alter_column(
         "product_analysis",
         "tech_level",
         existing_type=sa.VARCHAR(length=100),
-        comment="기술 수준",
-        existing_comment="기술적 수준",
+        comment="Technology level",
+        existing_comment="Technology level (legacy)",
         existing_nullable=True,
     )
     op.alter_column(
         "users",
         "id",
         existing_type=sa.INTEGER(),
-        comment="서비스 내부 고유 ID",
-        existing_comment="서비스 내부에서 사용하는 고유 ID",
+        comment="Internal unique ID",
+        existing_comment="Internal unique ID (legacy)",
         existing_nullable=False,
         autoincrement=True,
     )
@@ -198,7 +198,7 @@ def upgrade() -> None:
         "total_token_usage",
         existing_type=sa.INTEGER(),
         nullable=False,
-        existing_comment="누적 토큰 사용량",
+        existing_comment="Cumulative token usage",
         existing_server_default=sa.text("0"),
     )
     # ### end Alembic commands ###
@@ -212,15 +212,15 @@ def downgrade() -> None:
         "total_token_usage",
         existing_type=sa.INTEGER(),
         nullable=True,
-        existing_comment="누적 토큰 사용량",
+        existing_comment="Cumulative token usage",
         existing_server_default=sa.text("0"),
     )
     op.alter_column(
         "users",
         "id",
         existing_type=sa.INTEGER(),
-        comment="서비스 내부에서 사용하는 고유 ID",
-        existing_comment="서비스 내부 고유 ID",
+        comment="Internal unique ID (legacy)",
+        existing_comment="Internal unique ID",
         existing_nullable=False,
         autoincrement=True,
     )
@@ -228,120 +228,120 @@ def downgrade() -> None:
         "product_analysis",
         "tech_level",
         existing_type=sa.VARCHAR(length=100),
-        comment="기술적 수준",
-        existing_comment="기술 수준",
+        comment="Technology level (legacy)",
+        existing_comment="Technology level",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "retention_rate",
         existing_type=sa.NUMERIC(precision=5, scale=2),
-        comment="(C) 고객 유지율",
-        existing_comment="고객 유지율",
+        comment="(C) Customer retention rate",
+        existing_comment="Customer retention rate",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "nps",
         existing_type=sa.NUMERIC(precision=5, scale=2),
-        comment="(C) 순추천지수",
-        existing_comment="순추천지수",
+        comment="(C) Net Promoter Score (NPS)",
+        existing_comment="Net Promoter Score (NPS)",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "avg_purchase_value",
         existing_type=sa.NUMERIC(precision=15, scale=2),
-        comment="(C) 평균 구매 금액",
-        existing_comment="평균 구매 금액",
+        comment="(C) Average purchase value",
+        existing_comment="Average purchase value",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "customer_group",
         existing_type=sa.VARCHAR(length=100),
-        comment="(C) 주요 고객군",
-        existing_comment="주요 고객군",
+        comment="(C) Primary customer segment",
+        existing_comment="Primary customer segment",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "growth_drivers",
         existing_type=sa.TEXT(),
-        comment="(A) 시장 성장 동인",
-        existing_comment="시장 성장 동인",
+        comment="(A) Market growth drivers",
+        existing_comment="Market growth drivers",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "cagr",
         existing_type=sa.NUMERIC(precision=5, scale=2),
-        comment="(A) 연평균 성장률 (%)",
-        existing_comment="연평균 성장률 (%)",
+        comment="(A) CAGR (%)",
+        existing_comment="CAGR (%)",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "total_revenue",
         existing_type=sa.NUMERIC(precision=20, scale=2),
-        comment="(A) 해당 연도 전체 시장 매출액",
-        existing_comment="전체 시장 매출액",
+        comment="(A) Total market revenue for this year",
+        existing_comment="Total market revenue",
         existing_nullable=True,
     )
     op.alter_column(
         "market_analysis",
         "year",
         existing_type=sa.INTEGER(),
-        comment="데이터의 기준 연도",
-        existing_comment="데이터 기준 연도",
+        comment="Data reference year",
+        existing_comment="Data reference year",
         existing_nullable=False,
     )
     op.alter_column(
         "competitor_analysis",
         "source",
         existing_type=sa.VARCHAR(length=255),
-        comment="데이터의 출처",
-        existing_comment="데이터 출처",
+        comment="Data source",
+        existing_comment="Data source",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "debt_ratio",
         existing_type=sa.NUMERIC(precision=10, scale=2),
-        comment="경쟁사 부채 비율",
-        existing_comment="부채 비율",
+        comment="Competitor debt ratio",
+        existing_comment="Debt ratio",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "operating_profit",
         existing_type=sa.NUMERIC(precision=20, scale=2),
-        comment="경쟁사 연간 영업이익",
-        existing_comment="연간 영업이익",
+        comment="Competitor annual operating profit",
+        existing_comment="Annual operating profit",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "revenue",
         existing_type=sa.NUMERIC(precision=20, scale=2),
-        comment="경쟁사 연간 매출액",
-        existing_comment="연간 매출액",
+        comment="Competitor annual revenue",
+        existing_comment="Annual revenue",
         existing_nullable=True,
     )
     op.alter_column(
         "competitor_analysis",
         "year",
         existing_type=sa.INTEGER(),
-        comment="데이터의 기준 연도",
-        existing_comment="데이터 기준 연도",
+        comment="Data reference year",
+        existing_comment="Data reference year",
         existing_nullable=False,
     )
     op.alter_column(
         "business_plans",
         "latest_job_id",
         existing_type=sa.INTEGER(),
-        comment="가장 최근 분석 작업 ID (상태 조회용)",
-        existing_comment="가장 최근 분석 작업 ID",
+        comment="Most recent analysis job ID (for status lookup)",
+        existing_comment="Most recent analysis job ID",
         existing_nullable=True,
     )
     op.alter_column(
@@ -349,15 +349,15 @@ def downgrade() -> None:
         "status",
         existing_type=sa.VARCHAR(length=20),
         nullable=True,
-        existing_comment="분석 상태 (pending, processing, completed, failed)",
+        existing_comment="Analysis status (pending, processing, completed, failed)",
         existing_server_default=sa.text("'pending'::character varying"),
     )
     op.alter_column(
         "analysis_results",
         "details",
         existing_type=postgresql.JSONB(astext_type=sa.Text()),
-        comment="분석 유형별 특화 데이터 저장소 (모든 상세 평가 데이터 통합)",
-        existing_comment="분석 상세 데이터(JSONB)",
+        comment="Type-specific analysis data store (all detailed evaluation data)",
+        existing_comment="Detailed analysis data (JSONB)",
         existing_nullable=True,
     )
     op.alter_column(
@@ -367,15 +367,15 @@ def downgrade() -> None:
             "pending", "uploading", "completed", "failed", name="upload_status_enum"
         ),
         nullable=True,
-        existing_comment="S3 업로드 상태",
+        existing_comment="S3 upload status",
         existing_server_default=sa.text("'pending'::upload_status_enum"),
     )
     op.alter_column(
         "analysis_jobs",
         "s3_key",
         existing_type=sa.VARCHAR(length=500),
-        comment="S3 객체 키 (파일 경로)",
-        existing_comment="S3 객체 키",
+        comment="S3 object key (file path)",
+        existing_comment="S3 object key",
         existing_nullable=True,
     )
     op.alter_column(
@@ -383,7 +383,7 @@ def downgrade() -> None:
         "retry_count",
         existing_type=sa.INTEGER(),
         nullable=True,
-        existing_comment="재시도 횟수",
+        existing_comment="Retry count",
         existing_server_default=sa.text("0"),
     )
     # ### end Alembic commands ###

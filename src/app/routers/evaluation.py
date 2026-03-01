@@ -49,13 +49,14 @@ async def _analyze_section(
         )
         pillars_description.append(
             f"- **{pillar_name}:** {pillar_data['description']}\n"
-            f"  **[세부 검토사항]**\n{questions_str}"
+            f"  **[Detailed Review Items]**\n{questions_str}"
         )
         pillar_scoring_format.append(
             f"- **{pillar_name}:**\n"
-            f"  - **분석:** [사업계획서의 관련 내용을 여기에 분석/요약]\n"
-            f"  - **점수:** [루브릭에 따른 점수] / {pillar_name.split('(')[-1].replace('점)', '').strip()}점\n"
-            f"  - **근거:** [점수 부여에 대한 구체적인 이유]"
+            f"  - **Analysis:** [Analyze/summarize relevant content from the business plan here]\n"
+            # defined in the gitignored prompts file; update if pillar names are translated
+            f"  - **Score:** [Score per rubric] / {pillar_name.split('(')[-1].replace('점)', '').strip()}pts\n"
+            f"  - **Justification:** [Specific reason for the given score]"
         )
 
     prompt = SECTION_ANALYSIS_PROMPT_TEMPLATE.format(
@@ -77,7 +78,7 @@ async def _analyze_section(
     text = getattr(
         response,
         "text",
-        f"### 분석 섹션: {criteria['section_name']}\n\n[ANALYSIS FAILED]\n\n---",
+        f"### Analysis Section: {criteria['section_name']}\n\n[ANALYSIS FAILED]\n\n---",
     )
     return {"criteria": criteria, "analysis_text": text}
 

@@ -16,14 +16,14 @@ from app.models import models  # noqa: E402, F401
 
 logger = logging.getLogger("alembic.env")
 
-# .env 로드
+# Load .env
 env_path = Path(__file__).resolve().parents[1] / ".env"
 load_dotenv(dotenv_path=env_path)
 
-# Alembic 설정
+# Alembic configuration
 config = context.config
 
-# 로깅 설정
+# Logging configuration
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
@@ -31,9 +31,9 @@ target_metadata = Base.metadata
 
 
 def get_database_url() -> tuple[str, dict]:
-    """환경변수로부터 DATABASE_URL을 생성하고 검증합니다."""
+    """Build and validate DATABASE_URL from environment variables."""
 
-    # Docker 테스트 환경 체크
+    # Check for Docker test environment
     if os.getenv("TESTING") == "docker":
         return "postgresql://test_user:test123@localhost:5433/bizlenz_test", {
             "type": "postgresql",
@@ -42,33 +42,33 @@ def get_database_url() -> tuple[str, dict]:
             "db": "bizlenz_test",
         }
 
-    # SQLite 테스트 환경
+    # SQLite test environment
     if os.getenv("TESTING") == "true":
         return "sqlite:///:memory:", {"type": "sqlite", "location": "memory"}
 
-    # 기존 PostgreSQL 로직
+    # PostgreSQL
     db_user = os.getenv("DB_USER", "postgres")
     db_pass = os.getenv("DB_PASSWORD", "")
     db_host = os.getenv("DB_HOST", "localhost")
     db_port = os.getenv("DB_PORT", "5432")
     db_name = os.getenv("DB_NAME", "postgres")
 
-    # 필수 환경변수 검증 (실제 값이 있는지 확인)
-    if not os.getenv("DB_HOST"):  # 기본값이 아닌 실제 환경변수 확인
-        raise ValueError("DB_HOST 환경변수는 반드시 설정해야 합니다")
+    # Validate required env vars (ensure actual value is set, not just the default)
+    if not os.getenv("DB_HOST"):
+        raise ValueError("DB_HOST environment variable must be set")
 
-    # DATABASE_URL 생성
+    # Build DATABASE_URL
     database_url = (
         f"postgresql+psycopg2://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
     )
 
-    # 연결 정보도 함께 반환
+    # Return connection info alongside the URL
     db_info = {"user": db_user, "host": db_host, "port": db_port, "name": db_name}
 
     return database_url, db_info
 
 
-# DATABASE_URL 설정
+# Configure DATABASE_URL
 try:
     DATABASE_URL, db_info = get_database_url()
     config.set_main_option("sqlalchemy.url", DATABASE_URL)

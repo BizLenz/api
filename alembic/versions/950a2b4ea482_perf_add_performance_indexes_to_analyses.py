@@ -14,7 +14,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "950a2b4ea482"
-down_revision: str | Sequence[str] | None = "ebd1084c8d48"  # 🔧 수정됨
+down_revision: str | Sequence[str] | None = "ebd1084c8d48"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -30,21 +30,21 @@ def upgrade() -> None:
     - Time-based sorting
     """
 
-    # 🚀 핵심 단일 인덱스들 (가장 중요)
+    # Core single-column indexes
     op.create_index("idx_analyses_status", "analyses", ["status"])
     op.create_index("idx_analyses_plan_id", "analyses", ["plan_id"])
     op.create_index("idx_analyses_gemini_request_id", "analyses", ["gemini_request_id"])
 
-    # 🔥 복합 인덱스들 (성능 최적화)
+    # Composite indexes
     op.create_index("idx_analyses_plan_status", "analyses", ["plan_id", "status"])
     op.create_index("idx_analyses_status_created", "analyses", ["status", "created_at"])
 
-    # ⏰ 시간 기반 조회 최적화
+    # Time-based query optimization
     op.create_index(
         "idx_analyses_created_at_desc", "analyses", [sa.text("created_at DESC")]
     )
 
-    # 📊 조건부 인덱스 (NULL 값 제외하여 공간 효율성 증대)
+    # Partial indexes (excluding NULLs for space efficiency)
     op.create_index(
         "idx_analyses_completed_at_desc",
         "analyses",
@@ -59,7 +59,7 @@ def upgrade() -> None:
         postgresql_where=sa.text("overall_score IS NOT NULL"),
     )
 
-    # 🚨 에러 분석용 인덱스
+    # Error analysis index
     op.create_index(
         "idx_analyses_retry_count",
         "analyses",
@@ -75,7 +75,7 @@ def downgrade() -> None:
     This function completely undoes all changes made by upgrade().
     """
 
-    # 🗑️ 인덱스 삭제 (생성의 역순으로)
+    # Drop indexes (in reverse creation order)
     op.drop_index("idx_analyses_retry_count", table_name="analyses")
     op.drop_index("idx_analyses_overall_score_desc", table_name="analyses")
     op.drop_index("idx_analyses_completed_at_desc", table_name="analyses")

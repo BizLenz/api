@@ -13,17 +13,16 @@ analysis = APIRouter(
 )
 
 
-# 유저가 관련 업종/시장상황/전문적 의견 데이터 요청
 @analysis.get("/industry-data", response_model=Dict[str, Any])
 def get_industry_data(
-    file_id: int = Query(..., description="사업계획서 파일 ID"),
+    file_id: int = Query(..., description="Business plan file ID"),
     db: Session = Depends(get_db),
     claims: Dict[str, Any] = Depends(get_claims),
 ):
     """
-    특정 사업계획서(file_id)에 연결된 최신 industry/market 분석 결과 조회
-    - 유저 본인의 파일만 접근 가능
-    - 데이터 없으면 404 반환
+    Retrieve the latest industry/market analysis results for a business plan.
+    - Only the owner's files are accessible.
+    - Returns 404 if no data is found.
     """
     user_id = get_current_user_id(claims)
 
@@ -73,7 +72,6 @@ def get_industry_data(
     }
 
 
-# 유저가 분석 기록 삭제 요청
 @analysis.post("/records/{action}")
 def manage_analysis_record(
     action: str,
@@ -82,8 +80,8 @@ def manage_analysis_record(
     claims: Dict[str, Any] = Depends(get_claims),
 ):
     """
-    파일별 분석 기록 삭제
-    API 명세서: POST /api/analysis/records/{action}
+    Delete analysis records for a file.
+    API spec: POST /api/analysis/records/{action}
     """
     user_id = get_current_user_id(claims)
 
@@ -100,7 +98,6 @@ def manage_analysis_record(
 
     if action == "delete":
         try:
-            # 최신 AnalysisResult 삭제
             record = (
                 db.query(AnalysisResult)
                 .filter(AnalysisResult.analysis_job_id == business_plan.latest_job_id)

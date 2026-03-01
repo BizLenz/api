@@ -28,7 +28,7 @@ def upgrade() -> None:
             "latest_job_id",
             sa.Integer(),
             nullable=True,
-            comment="가장 최근 분석 작업 ID (상태 조회용)",
+            comment="Most recent analysis job ID (for status lookup)",
         ),
     )
     op.create_index(
