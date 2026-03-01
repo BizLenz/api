@@ -19,12 +19,12 @@ from app.database import Base
 
 
 # -----------------------
-# Users 테이블 (Cognito 기반 서비스 프로필)
+# Users 테이블 (OIDC 기반 서비스 프로필)
 # -----------------------
 class User(Base):
     __tablename__ = "users"
     id = Column(
-        String(255), primary_key=True, comment="Cognito Sub (서비스 내부 고유 ID)"
+        String(255), primary_key=True, comment="OIDC sub claim (서비스 내부 고유 ID)"
     )
     created_at = Column(
         TIMESTAMP(timezone=True),

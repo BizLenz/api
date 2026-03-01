@@ -72,9 +72,9 @@ def is_admin(claims: Dict[str, Any]) -> bool:
     return "admin" in groups or "administrators" in groups
 
 
-def get_user_by_cognito_sub(db: Session, cognito_sub: str) -> str:
-    get_or_create_user(db, cognito_sub=cognito_sub)
-    return cognito_sub
+def get_or_ensure_user(db: Session, user_id: str) -> str:
+    get_or_create_user(db, user_id=user_id)
+    return user_id
 
 
 def get_current_user_id(claims: Dict[str, Any]) -> str:
@@ -163,7 +163,7 @@ def save_file_metadata(
                 detail="s3_file_url is required for metadata saving.",
             )
 
-        user_id = get_user_by_cognito_sub(db, get_current_user_id(claims))
+        user_id = get_or_ensure_user(db, get_current_user_id(claims))
         db_business_plan = create_business_plan(db, metadata, user_id=user_id)
 
         return {
@@ -263,10 +263,7 @@ def delete_file(
         if file.file_path:
             s3_key = _extract_s3_key(file.file_path)
             s3_client = _make_s3_client()
-            try:
-                s3_client.delete_object(Bucket=settings.storage_bucket_name, Key=s3_key)
-            except Exception as s3_error:
-                raise s3_error
+            s3_client.delete_object(Bucket=settings.storage_bucket_name, Key=s3_key)
 
         db.delete(file)
         db.commit()

@@ -91,21 +91,8 @@ logger = logging.getLogger("bizlenz.auth")
 
 @app.middleware("http")
 async def inject_claims(request: Request, call_next):
-    """Extract JWT claims from the request context"""
+    """Normalise JWT claims set by OIDCAuthMiddleware on the request state"""
     claims: Dict[str, Any] = getattr(request.state, "claims", {})
-
-    # API Gateway Lambda path: extract from aws.event if not already set.
-    if not claims:
-        aws_event = request.scope.get("aws.event")
-        if isinstance(aws_event, dict):
-            rc = aws_event.get("requestContext", {})
-            authorizer = rc.get("authorizer", {}) or {}
-            if isinstance(authorizer, dict):
-                claims = authorizer.get("claims") or {}
-                if not claims:
-                    jwt_obj = authorizer.get("jwt") or {}
-                    if isinstance(jwt_obj, dict):
-                        claims = jwt_obj.get("claims") or {}
 
     # Normalise groups claim: support both list and comma-separated string.
     raw_groups = claims.get("groups")

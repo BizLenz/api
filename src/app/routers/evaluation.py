@@ -27,8 +27,6 @@ from app.schemas.evaluation import (
     AnalysisRequestAck,
     AnalysisResultOut,
 )
-from functools import partial
-
 from google import genai
 
 router = APIRouter()
@@ -46,16 +44,6 @@ def _make_storage_client():
     if settings.storage_endpoint_url:
         kwargs["endpoint_url"] = settings.storage_endpoint_url
     return boto3.client("s3", **kwargs)
-
-
-async def upload_file_async(client: genai.Client, path: str, display_name: str):
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(
-        None,
-        partial(
-            client.files.upload, path=str(path), config={display_name: display_name}
-        ),
-    )
 
 
 async def _analyze_section(
