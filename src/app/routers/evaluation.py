@@ -5,7 +5,6 @@ import tempfile
 import json
 from typing import Dict, Any
 
-import boto3
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException, status, Depends
 from google.genai.types import UploadFileConfig, GenerateContentConfig, File
@@ -13,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import require_scope
+from app.services.s3_service import make_boto3_client
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.database import get_db
 from app.models.models import AnalysisJob
@@ -31,19 +31,6 @@ from google import genai
 
 router = APIRouter()
 evaluation_router = APIRouter(dependencies=[Depends(require_scope("openid"))])
-
-
-def _make_storage_client():
-    """Create an S3-compatible client for file retrieval"""
-    kwargs: Dict[str, Any] = {
-        "aws_access_key_id": settings.aws_access_key_id,
-        "aws_secret_access_key": settings.aws_secret_access_key,
-    }
-    if settings.storage_region:
-        kwargs["region_name"] = settings.storage_region
-    if settings.storage_endpoint_url:
-        kwargs["endpoint_url"] = settings.storage_endpoint_url
-    return boto3.client("s3", **kwargs)
 
 
 async def _analyze_section(
@@ -125,7 +112,7 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
             filename = req.file_path.split("/")[-1] or "input.pdf"
             local_path = pathlib.Path(td) / filename
 
-            storage_client = _make_storage_client()
+            storage_client = make_boto3_client()
             try:
                 storage_client.download_file(
                     settings.storage_bucket_name, req.file_path, str(local_path)

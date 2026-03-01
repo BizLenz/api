@@ -162,3 +162,16 @@ class S3Manager:
 def get_s3_manager() -> S3Manager:
     """Factory: create an S3Manager instance"""
     return S3Manager()
+
+
+def make_boto3_client():
+    """Create a raw boto3 S3-compatible client using current settings"""
+    kwargs = {
+        "aws_access_key_id": settings.aws_access_key_id,
+        "aws_secret_access_key": settings.aws_secret_access_key,
+    }
+    if settings.storage_region:
+        kwargs["region_name"] = settings.storage_region
+    if settings.storage_endpoint_url:
+        kwargs["endpoint_url"] = settings.storage_endpoint_url
+    return boto3.client("s3", **kwargs)

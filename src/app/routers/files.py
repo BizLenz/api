@@ -11,25 +11,11 @@ from app.core.security import require_scope, get_claims
 from app.core.exceptions import to_http_exception
 from app.crud.user import get_or_create_user
 from app.models import BusinessPlan
-import boto3
-
-from app.schemas.file_schemas import PresignedUrlRequest, FileMetadataSaveRequest
+from app.schemas.file_schemas import FileMetadataSaveRequest, PresignedUrlRequest
+from app.services.s3_service import make_boto3_client
 
 # bizlenz/read scope is always a must
 files = APIRouter(dependencies=[Depends(require_scope("bizlenz/read"))])
-
-
-def _make_s3_client():
-    """Create an S3-compatible client using current settings"""
-    kwargs: Dict[str, Any] = {
-        "aws_access_key_id": settings.aws_access_key_id,
-        "aws_secret_access_key": settings.aws_secret_access_key,
-    }
-    if settings.storage_region:
-        kwargs["region_name"] = settings.storage_region
-    if settings.storage_endpoint_url:
-        kwargs["endpoint_url"] = settings.storage_endpoint_url
-    return boto3.client("s3", **kwargs)
 
 
 def _storage_file_url(bucket: str, key: str) -> str:
@@ -118,7 +104,7 @@ def upload(
         s3_object_key_basename = f"{uuid4()}_{file_details.file_name}"
         s3_full_key = f"{settings.s3_upload_folder}/{s3_object_key_basename}"
 
-        s3_client = _make_s3_client()
+        s3_client = make_boto3_client()
         url = s3_client.generate_presigned_url(
             "put_object",
             Params={
@@ -262,7 +248,7 @@ def delete_file(
 
         if file.file_path:
             s3_key = _extract_s3_key(file.file_path)
-            s3_client = _make_s3_client()
+            s3_client = make_boto3_client()
             s3_client.delete_object(Bucket=settings.storage_bucket_name, Key=s3_key)
 
         db.delete(file)
@@ -308,7 +294,7 @@ def download_file(
             raise HTTPException(status_code=404, detail="File path not found")
 
         s3_key = _extract_s3_key(_file.file_path)
-        s3_client = _make_s3_client()
+        s3_client = make_boto3_client()
         presigned_url = s3_client.generate_presigned_url(
             "get_object",
             Params={"Bucket": settings.storage_bucket_name, "Key": s3_key},
