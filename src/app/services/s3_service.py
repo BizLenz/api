@@ -7,7 +7,7 @@ Configure STORAGE_ENDPOINT_URL to point at a custom endpoint; leave it unset for
 import hashlib
 import json
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 import boto3
@@ -45,7 +45,7 @@ class S3Manager:
     def _generate_s3_key(
         self, user_id: str, plan_id: int, analysis_id: int, file_type: str
     ) -> str:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         return f"users/{user_id}/plans/{plan_id}/analyses/{analysis_id}/{file_type}_{timestamp}.json"
 
     def _calculate_checksum(self, content: bytes) -> str:
@@ -67,7 +67,7 @@ class S3Manager:
             "user-id": str(user_id),
             "plan-id": str(plan_id),
             "analysis-id": str(analysis_id),
-            "upload-time": datetime.now().isoformat(),
+            "upload-time": datetime.now(timezone.utc).isoformat(),
         }
 
         try:
@@ -84,7 +84,7 @@ class S3Manager:
             code = e.response["Error"]["Code"]
             raise Exception(
                 f"Storage upload failed [{code}]: {e.response['Error']['Message']}"
-            )
+            ) from e
 
         return {
             "storage_bucket": self.bucket_name,
@@ -94,7 +94,7 @@ class S3Manager:
             "file_checksum": self._calculate_checksum(content_bytes),
             "content_type": "application/json",
             "upload_status": "completed",
-            "upload_completed_at": datetime.now(),
+            "upload_completed_at": datetime.now(timezone.utc),
         }
 
     async def download_analysis_result(self, s3_key: str) -> Dict[str, Any]:
@@ -112,10 +112,10 @@ class S3Manager:
             }
         except ClientError as e:
             if e.response["Error"]["Code"] == "NoSuchKey":
-                raise Exception(f"Object not found: {s3_key}")
+                raise Exception(f"Object not found: {s3_key}") from e
             raise Exception(
                 f"Storage download failed: {e.response['Error']['Message']}"
-            )
+            ) from e
 
     def generate_presigned_url(
         self, s3_key: str, operation: str = "get_object", expiration: int = 3600
@@ -130,7 +130,7 @@ class S3Manager:
         except ClientError as e:
             raise Exception(
                 f"Pre-signed URL generation failed: {e.response['Error']['Message']}"
-            )
+            ) from e
 
     async def delete_files(self, s3_keys: list) -> Dict[str, Any]:
         """Batch-delete objects from storage"""
@@ -156,7 +156,7 @@ class S3Manager:
         except ClientError as e:
             raise Exception(
                 f"Storage deletion failed: {e.response['Error']['Message']}"
-            )
+            ) from e
 
 
 def get_s3_manager() -> S3Manager:
