@@ -26,8 +26,8 @@ def test_get_industry_data():
 def test_get_industry_data_missing_param():
     """file_id 파라미터 누락 시 422 에러"""
     response = client.get("/analysis/industry-data")
-    # 실제로는 404가 나올 수 있으므로 범위 확대
-    assert response.status_code in (404, 422)
+    # Auth check happens before param validation, so 401 is also valid
+    assert response.status_code in (401, 404, 422)
 
 
 # ============================================================================
@@ -37,7 +37,6 @@ def test_manage_analysis_record_delete():
     """POST /analysis/records/delete 엔드포인트 기본 동작 확인"""
     payload = {"file_id": 1}
     response = client.post("/analysis/records/delete", json=payload)
-    # 인증 문제(401/403), 파일 없음(404), 또는 성공(200) 가능
     assert response.status_code in (200, 401, 403, 404)
 
 
@@ -45,15 +44,13 @@ def test_manage_analysis_record_invalid_action():
     """잘못된 action으로 요청 시 400 에러"""
     payload = {"file_id": 1}
     response = client.post("/analysis/records/invalid_action", json=payload)
-    # 404도 포함 (존재하지 않는 엔드포인트)
     assert response.status_code in (400, 401, 403, 404)
 
 
 def test_manage_analysis_record_missing_body():
     """요청 본문 누락 시 422 에러"""
     response = client.post("/analysis/records/delete")
-    # 실제로는 404가 나올 수 있으므로 범위 확대
-    assert response.status_code in (404, 422)
+    assert response.status_code in (401, 404, 422)
 
 
 # ============================================================================

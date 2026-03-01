@@ -55,54 +55,49 @@ class TestMigrationsIsolated:
 
     @patch("app.database.get_db_url")
     def test_models_create_tables_directly(self, mock_get_db_url, isolated_engine):
-        """모델을 통해 직접 테이블 생성 테스트 (핵심 테이블만)"""
-        # 데이터베이스 URL을 SQLite로 강제 변경
+        """모델을 통해 직접 테이블 생성 테스트 only for SQLite-compliant tables"""
         mock_get_db_url.return_value = str(isolated_engine.url)
 
-        # SQLite 호환 테이블만 임포트
-        from app.models.models import User, BusinessPlan, AnalysisJob, AnalysisResult
+        # Only import models that have no JSONB columns
+        from app.models.models import User, BusinessPlan, AnalysisJob
 
-        # 핵심 테이블만 생성 (JSONB 사용 테이블 제외)
         metadata = MetaData()
         core_tables = [
             User.__table__,
             BusinessPlan.__table__,
             AnalysisJob.__table__,
-            AnalysisResult.__table__,
         ]
 
         for table in core_tables:
-            table.tometadata(metadata)
+            table.to_metadata(metadata)
 
-        # 테이블 생성
         metadata.create_all(isolated_engine)
 
-        # 테이블 확인
         inspector = inspect(isolated_engine)
         tables = set(inspector.get_table_names())
 
-        print(f"\n🔍 생성된 테이블: {tables}")
+        print(f"\n생성된 테이블: {tables}")
 
-        expected_tables = {
-            "users",
-            "business_plans",
-            "analysis_jobs",
-            "analysis_results",
-        }
+        expected_tables = {"users", "business_plans", "analysis_jobs"}
         created_core_tables = expected_tables.intersection(tables)
 
-        assert len(created_core_tables) >= 2, (
-            f"핵심 테이블이 생성되지 않음. 생성된: {tables}"
-        )
+        assert (
+            len(created_core_tables) >= 2
+        ), f"핵심 테이블이 생성되지 않음. 생성된: {tables}"
 
     @patch("app.database.get_db_url")
     def test_table_schemas(self, mock_get_db_url, isolated_engine):
-        """테이블 스키마 검증"""
+        """테이블 스키마 검증 (SQLite 호환 테이블만 생성)"""
         mock_get_db_url.return_value = str(isolated_engine.url)
 
-        from app.models.models import Base
+        # Only create tables without JSONB columns
+        from app.models.models import User, BusinessPlan, AnalysisJob
+        from sqlalchemy import MetaData as _Meta
 
-        Base.metadata.create_all(isolated_engine)
+        meta = _Meta()
+        for t in [User.__table__, BusinessPlan.__table__, AnalysisJob.__table__]:
+            t.to_metadata(meta)
+        meta.create_all(isolated_engine)
 
         inspector = inspect(isolated_engine)
 

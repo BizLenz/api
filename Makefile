@@ -1,4 +1,4 @@
-.PHONY: format lint test clean
+.PHONY: format lint test test-ci clean dev
 
 UV_RUN := uv run
 
@@ -12,8 +12,15 @@ format:
 lint:
 	$(UV_RUN) ruff check src/
 
+# Run tests with optional test extras installed
 test:
-	$(UV_RUN) pytest
+	uv sync --extra test
+	CI=true $(UV_RUN) pytest
+
+# Same but explicit for CI environments
+test-ci:
+	uv pip install -r requirements.txt
+	CI=true $(UV_RUN) pytest
 
 clean:
 	find . -type f -name "*.pyc" -delete

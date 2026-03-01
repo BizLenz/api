@@ -16,7 +16,7 @@ from app.core.security import require_scope
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.database import get_db
 from app.models.models import AnalysisJob
-from app.prompts.pre_startup import (
+from app.prompts.example.pre_startup import (
     EVALUATION_CRITERIA,
     FINAL_REPORT_PROMPT,
     SECTION_ANALYSIS_PROMPT_TEMPLATE,

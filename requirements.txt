@@ -5,26 +5,32 @@ uvicorn[standard]
 # Database
 sqlalchemy>=1.4.0
 alembic
-psycopg2-binary # PostgreSQL 드라이버 (RDS가 PostgreSQL일 경우)
+psycopg2-binary
 
-# AWS
+# S3-compatible storage
 boto3>=1.28.0
+
+# Serverless adapter (optional, used only in AWS Lambda deployments)
 mangum>=0.17.0
 
 # Google GenAI
-google-generativeai==0.7.2
+google-genai
 
 # Settings Management
 pydantic-settings>=2.0.0
+python-dotenv
 
-# Authentication
+# Authentication / JWT
 passlib[bcrypt]
 python-jose[cryptography]
 
-# Testing
-pytest
-pytest-asyncio>=0.21.0
+# HTTP client
 httpx
+aiofiles
+
+# Testing (optional; install with: pip install -r requirements.txt)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
 pytest-mock
-moto[all]>=5.0.0
+moto[s3]>=5.0.0
 requests
