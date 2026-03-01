@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from typing import Literal, Optional, Dict, Any
-from pydantic import BaseModel, Field, field_validator, condecimal
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import datetime
 
 
@@ -24,8 +24,8 @@ class AnalysisResponse(BaseModel):
     sections_analyzed: int = Field(..., ge=0)
     contest_type: str = Field(...)
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "examples": [
                 {
                     "report_json": '{"title": "예비창업패키지 사업계획서 최종 평가 보고서", ...}',
@@ -34,7 +34,7 @@ class AnalysisResponse(BaseModel):
                 }
             ]
         }
-    }
+    )
 
 
 class AnalysisResultCreateIn(BaseModel):
@@ -62,25 +62,23 @@ class AnalysisResultCreateIn(BaseModel):
 
 
 class AnalysisResultOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     analysis_job_id: int
     evaluation_type: str
-    score: Optional[condecimal(max_digits=5, decimal_places=2)] = None
+    score: Optional[Decimal] = None
     summary: Optional[str] = None
     details: Dict[str, Any]
     created_at: datetime
 
-    class Config:
-        from_attributes = True  # ORM 객체 → Pydantic 변환 허용
-
 
 class AnalysisRequestAck(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     message: str = Field(
         default="분석 요청이 정상적으로 접수되었습니다. 백그라운드에서 처리가 시작됩니다.",
         description="응답 메시지",
     )
     analysis_job_id: int = Field(..., description="생성된 분석 작업의 고유 ID")
     status: str = Field(default="pending", description="분석 작업의 초기 상태")
-
-    class Config:
-        from_attributes = True
