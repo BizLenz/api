@@ -58,7 +58,7 @@ class OIDCAuthMiddleware(BaseHTTPMiddleware):
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Could not fetch JWKS: {e.response.status_code}",
             )
-        except Exception as e:
+        except Exception:
             logger.exception("Unexpected error fetching JWKS from %s", self.jwks_url)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

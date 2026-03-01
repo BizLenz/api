@@ -1,23 +1,24 @@
 import logging
-
-from fastapi import APIRouter, HTTPException, Query, Depends, status
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
 from typing import Optional, Dict, Any
-from botocore.exceptions import ClientError, BotoCoreError
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
-from app.crud.file_metadata import create_business_plan
+from botocore.exceptions import ClientError, BotoCoreError
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
 from app.core.config import settings
-from app.database import get_db
-from app.core.security import require_scope, get_claims
 from app.core.enums import PlanStatus
 from app.core.exceptions import to_http_exception
+from app.core.security import get_claims, require_scope
+from app.crud.file_metadata import create_business_plan
 from app.crud.user import get_or_create_user
+from app.database import get_db
 from app.models import BusinessPlan
 from app.schemas.file_schemas import FileMetadataSaveRequest, PresignedUrlRequest
 from app.services.s3_service import make_boto3_client
+
+logger = logging.getLogger(__name__)
 
 # bizlenz/read scope is always a must
 files = APIRouter(dependencies=[Depends(require_scope("bizlenz/read"))])

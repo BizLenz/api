@@ -1,7 +1,6 @@
 # Smoke tests for the evaluation router
 # Full integration tests require Gemini API and storage are excluded
 
-import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 

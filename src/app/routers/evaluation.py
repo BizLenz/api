@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import json
 import logging
@@ -6,17 +7,15 @@ import pathlib
 import tempfile
 from typing import Dict, Any
 
-logger = logging.getLogger(__name__)
-
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, HTTPException, status, Depends
-from google.genai.types import UploadFileConfig, GenerateContentConfig, File
+from fastapi import APIRouter, Depends, HTTPException, status
+from google import genai
+from google.genai.types import File, GenerateContentConfig, UploadFileConfig
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.enums import PlanStatus
 from app.core.security import require_scope
-from app.services.s3_service import make_boto3_client
 from app.crud.evaluation import create_analysis_result, get_analysis_result
 from app.database import get_db
 from app.models.models import AnalysisJob
@@ -31,7 +30,9 @@ from app.schemas.evaluation import (
     AnalysisRequestAck,
     AnalysisResultOut,
 )
-from google import genai
+from app.services.s3_service import make_boto3_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 evaluation_router = APIRouter(dependencies=[Depends(require_scope("openid"))])
