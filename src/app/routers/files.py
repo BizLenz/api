@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Query, Depends, status
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from typing import Optional, Dict, Any
 from botocore.exceptions import ClientError, BotoCoreError
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 from app.crud.file_metadata import create_business_plan
 from app.core.config import settings
 from app.database import get_db
@@ -171,8 +175,9 @@ def save_file_metadata(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error saving file metadata: {e}")
+    except Exception:
+        logger.exception("Error saving file metadata")
+        raise HTTPException(status_code=500, detail="Error saving file metadata")
 
 
 #####################################
@@ -259,7 +264,7 @@ def delete_file(
             "deleted_file_id": file_id,
         }
 
-    except (ClientError, BotoCoreError) as s3_error:
+    except (ClientError, BotoCoreError):
         db.rollback()
         raise HTTPException(
             status_code=500, detail="File deletion failed: storage error"
@@ -267,9 +272,10 @@ def delete_file(
     except HTTPException:
         db.rollback()
         raise
-    except Exception as e:
+    except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error deleting file: {e}")
+        logger.exception("Error deleting file %s", file_id)
+        raise HTTPException(status_code=500, detail="Error deleting file")
 
 
 @files.get("/{file_id}/download", response_model=dict)
@@ -309,10 +315,9 @@ def download_file(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error preparing file download: {e}"
-        )
+    except Exception:
+        logger.exception("Error preparing download for file %s", file_id)
+        raise HTTPException(status_code=500, detail="Error preparing file download")
 
 
 #####################################
@@ -354,8 +359,9 @@ def get_all_files_admin(
                 for f in _files
             ],
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error retrieving all files: {e}")
+    except Exception:
+        logger.exception("Error retrieving all files (admin)")
+        raise HTTPException(status_code=500, detail="Error retrieving all files")
 
 
 @files.get("/admin/search", response_model=dict)
@@ -402,5 +408,6 @@ def search_all_files_admin(
         }
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error searching files: {e}")
+    except Exception:
+        logger.exception("Error searching files (admin)")
+        raise HTTPException(status_code=500, detail="Error searching files")

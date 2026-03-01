@@ -1,9 +1,12 @@
 from __future__ import annotations
 import asyncio
+import json
+import logging
 import pathlib
 import tempfile
-import json
 from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
 
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException, status, Depends
@@ -194,9 +197,10 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
     except HTTPException:
         db.rollback()
         raise
-    except Exception as e:
+    except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Analysis error: {e}")
+        logger.exception("Analysis failed for plan %s", req.plan_id)
+        raise HTTPException(status_code=500, detail="Analysis failed. Please try again.")
 
     return {
         "message": "Analysis completed successfully.",
