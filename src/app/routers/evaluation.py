@@ -14,6 +14,7 @@ from google.genai.types import UploadFileConfig, GenerateContentConfig, File
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.enums import PlanStatus
 from app.core.security import require_scope
 from app.services.s3_service import make_boto3_client
 from app.crud.evaluation import create_analysis_result, get_analysis_result
@@ -106,7 +107,7 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
         new_job = AnalysisJob(
             plan_id=req.plan_id,
             job_type=req.contest_type,
-            status="processing",
+            status=PlanStatus.PROCESSING,
         )
         db.add(new_job)
         db.flush()
@@ -180,7 +181,7 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
             summary=report_data.get("summary", ""),
             details=report_data.get("details", {}),
         )
-        new_job.status = "completed"
+        new_job.status = PlanStatus.COMPLETED
 
         from app.models.models import BusinessPlan
 

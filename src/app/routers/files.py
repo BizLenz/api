@@ -12,6 +12,7 @@ from app.crud.file_metadata import create_business_plan
 from app.core.config import settings
 from app.database import get_db
 from app.core.security import require_scope, get_claims
+from app.core.enums import PlanStatus
 from app.core.exceptions import to_http_exception
 from app.crud.user import get_or_create_user
 from app.models import BusinessPlan
@@ -201,7 +202,7 @@ def search_my_files(
         query = query.filter(BusinessPlan.file_name.ilike(f"%{keywords}%"))
 
     if status_filter:
-        if status_filter not in ["pending", "processing", "completed", "failed"]:
+        if status_filter not in list(PlanStatus):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid status filter"
             )
@@ -368,7 +369,7 @@ def search_all_files_admin(
         if user_id:
             query = query.filter(BusinessPlan.user_id == user_id)
         if status_filter:
-            if status_filter not in ["pending", "processing", "completed", "failed"]:
+            if status_filter not in list(PlanStatus):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid status filter",
