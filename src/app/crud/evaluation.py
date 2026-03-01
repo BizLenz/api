@@ -30,17 +30,9 @@ def create_analysis_result(
     db.refresh(obj)
 
     # Update business_plans.latest_job_id
-    job = (
-        db.query(AnalysisJob)
-        .filter(AnalysisJob.id == analysis_job_id)
-        .first()
-    )
+    job = db.query(AnalysisJob).filter(AnalysisJob.id == analysis_job_id).first()
     if job:
-        plan = (
-            db.query(BusinessPlan)
-            .filter(BusinessPlan.id == job.plan_id)
-            .first()
-        )
+        plan = db.query(BusinessPlan).filter(BusinessPlan.id == job.plan_id).first()
         if plan:
             plan.latest_job_id = analysis_job_id
             db.commit()

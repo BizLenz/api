@@ -345,7 +345,10 @@ def get_all_files_admin(
             .offset(offset)
             .all()
         )
-        return {"success": True, "results": [serialize_business_plan(f) for f in _files]}
+        return {
+            "success": True,
+            "results": [serialize_business_plan(f) for f in _files],
+        }
     except Exception:
         logger.exception("Error retrieving all files (admin)")
         raise HTTPException(status_code=500, detail="Error retrieving all files")
@@ -377,7 +380,10 @@ def search_all_files_admin(
                 )
             query = query.filter(BusinessPlan.status == status_filter)
         _files = query.order_by(desc(BusinessPlan.created_at)).limit(limit).all()
-        return {"success": True, "results": [serialize_business_plan(f) for f in _files]}
+        return {
+            "success": True,
+            "results": [serialize_business_plan(f) for f in _files],
+        }
     except HTTPException:
         raise
     except Exception:

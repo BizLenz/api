@@ -81,9 +81,9 @@ class TestMigrationsIsolated:
         expected_tables = {"users", "business_plans", "analysis_jobs"}
         created_core_tables = expected_tables.intersection(tables)
 
-        assert (
-            len(created_core_tables) >= 2
-        ), f"핵심 테이블이 생성되지 않음. 생성된: {tables}"
+        assert len(created_core_tables) >= 2, (
+            f"핵심 테이블이 생성되지 않음. 생성된: {tables}"
+        )
 
     @patch("app.database.get_db_url")
     def test_table_schemas(self, mock_get_db_url, isolated_engine):

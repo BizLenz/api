@@ -202,7 +202,9 @@ async def create_analysis(req: AnalysisCreateIn, db: Session = Depends(get_db)):
     except Exception:
         db.rollback()
         logger.exception("Analysis failed for plan %s", req.plan_id)
-        raise HTTPException(status_code=500, detail="Analysis failed. Please try again.")
+        raise HTTPException(
+            status_code=500, detail="Analysis failed. Please try again."
+        )
 
     return {
         "message": "Analysis completed successfully.",

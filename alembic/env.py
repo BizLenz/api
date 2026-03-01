@@ -1,21 +1,20 @@
 import logging
+import os
 import sys
+from logging.config import fileConfig
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-import os
-from logging.config import fileConfig
+from alembic import context  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
+from sqlalchemy import engine_from_config, pool  # noqa: E402
+
+# Base and models must be imported after sys.path.append
+from app.database import Base  # noqa: E402
+from app.models import models  # noqa: E402, F401
 
 logger = logging.getLogger("alembic.env")
-
-from dotenv import load_dotenv
-from sqlalchemy import engine_from_config, pool
-from alembic import context
-
-# Base와 models는 sys.path.append 이후에 import
-from app.database import Base
-from app.models import models  # noqa: F401
 
 # .env 로드
 env_path = Path(__file__).resolve().parents[1] / ".env"
@@ -33,17 +32,20 @@ target_metadata = Base.metadata
 
 def get_database_url() -> tuple[str, dict]:
     """환경변수로부터 DATABASE_URL을 생성하고 검증합니다."""
-    
+
     # Docker 테스트 환경 체크
     if os.getenv("TESTING") == "docker":
         return "postgresql://test_user:test123@localhost:5433/bizlenz_test", {
-            "type": "postgresql", "host": "localhost", "port": "5433", "db": "bizlenz_test"
+            "type": "postgresql",
+            "host": "localhost",
+            "port": "5433",
+            "db": "bizlenz_test",
         }
-    
+
     # SQLite 테스트 환경
     if os.getenv("TESTING") == "true":
         return "sqlite:///:memory:", {"type": "sqlite", "location": "memory"}
-    
+
     # 기존 PostgreSQL 로직
     db_user = os.getenv("DB_USER", "postgres")
     db_pass = os.getenv("DB_PASSWORD", "")
@@ -70,13 +72,24 @@ def get_database_url() -> tuple[str, dict]:
 try:
     DATABASE_URL, db_info = get_database_url()
     config.set_main_option("sqlalchemy.url", DATABASE_URL)
-    
+
     if os.getenv("TESTING") == "docker":
-        logger.info("Docker test env: PostgreSQL %s:%s/%s", db_info['host'], db_info['port'], db_info['db'])
+        logger.info(
+            "Docker test env: PostgreSQL %s:%s/%s",
+            db_info["host"],
+            db_info["port"],
+            db_info["db"],
+        )
     elif os.getenv("TESTING") == "true":
         logger.info("Test env: SQLite in-memory DB")
     else:
-        logger.info("DB connection configured: %s@%s:%s/%s", db_info['user'], db_info['host'], db_info['port'], db_info['name'])
+        logger.info(
+            "DB connection configured: %s@%s:%s/%s",
+            db_info["user"],
+            db_info["host"],
+            db_info["port"],
+            db_info["name"],
+        )
 except ValueError as e:
     logger.error("Environment variable error: %s", e)
     sys.exit(1)
