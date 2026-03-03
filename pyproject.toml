@@ -13,22 +13,41 @@ authors = [
 ]
 
 dependencies = [
-    "pytest>=7.0.0",
     "fastapi",
-    "boto3",
-    "python-dotenv",
-    "pydantic",
-    "uvicorn",
-    "httpx",
-    "botocore",
-    "aiofiles",
-    "sqlalchemy",
+    "uvicorn[standard]",
+    "sqlalchemy>=1.4.0",
     "alembic",
     "psycopg2-binary",
-    "ruff"
+    "boto3>=1.28.0",
+    "botocore",
+    # Serverless adapter
+    "mangum>=0.17.0",
+    # Auth / JWT
+    "python-jose[cryptography]",
+    "passlib[bcrypt]",
+    # Settings & utils
+    "pydantic",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv",
+    "httpx",
+    "aiofiles",
+
+    "google-genai",
+    "ruff",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-mock",
+    "moto[s3]>=5.0.0",
+    "requests",
 ]
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
+asyncio_mode = "auto"
 addopts = "-v"
 
 [tool.ruff]

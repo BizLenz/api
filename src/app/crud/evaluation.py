@@ -30,17 +30,9 @@ def create_analysis_result(
     db.refresh(obj)
 
     # Update business_plans.latest_job_id
-    job = (
-        db.query(AnalysisJob)
-        .filter(AnalysisJob.id == analysis_job_id)
-        .first()
-    )
+    job = db.query(AnalysisJob).filter(AnalysisJob.id == analysis_job_id).first()
     if job:
-        plan = (
-            db.query(BusinessPlan)
-            .filter(BusinessPlan.id == job.plan_id)
-            .first()
-        )
+        plan = db.query(BusinessPlan).filter(BusinessPlan.id == job.plan_id).first()
         if plan:
             plan.latest_job_id = analysis_job_id
             db.commit()
@@ -57,18 +49,12 @@ def get_analysis_result(db: Session, *, plan_id: int) -> Optional[AnalysisResult
     - plan_id (int): ID of the plan (business plan) to query
     """
 
-    latest_job_query = (
-        db.query(AnalysisJob.id)
-        .filter(AnalysisJob.plan_id == plan_id)
-        .order_by(AnalysisJob.id.desc())
+    latest_job_id = db.execute(
+        select(AnalysisJob.id)
+        .where(AnalysisJob.plan_id == plan_id)
+        .order_by(AnalysisJob.created_at.desc())
         .limit(1)
-        .subquery()
-    )
-
-    latest_job_query = (
-        select(AnalysisJob.id).order_by(AnalysisJob.created_at.desc()).limit(1)
-    )
-    latest_job_id = db.execute(latest_job_query).scalar_one_or_none()
+    ).scalar_one_or_none()
     if latest_job_id is None:
         return None
 

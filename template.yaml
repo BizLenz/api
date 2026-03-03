@@ -9,45 +9,33 @@ Parameters:
   CognitoUserPoolArn:
     Type: String
     Description: ARN of existing Cognito User Pool (e.g., arn:aws:cognito-idp:ap-northeast-2:123456789012:userpool/ap-northeast-2_ABCdef123)
-<<<<<<< HEAD
   S3BucketName:
     Type: String
     Description: S3 bucket name for original files
-=======
->>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
 
 
 Globals:
   Function:
-<<<<<<< HEAD
-    Runtime: python3.12
-=======
     Runtime: python3.11
->>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
     Timeout: 10
     MemorySize: 512
     Architectures: [x86_64]
     Environment:
       Variables:
         STAGE: dev
-<<<<<<< HEAD
         GOOGLE_API_KEY: your-GOOGLE_API_KEY
-        GEMINI_MODEL_ANALYSIS: gemini-1.5-flash
-=======
->>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
+        GEMINI_MODEL_ANALYSIS: gemini-2.5-flash
 
 Resources:
   RestApi:
     Type: AWS::Serverless::Api
     Properties:
       StageName: v1
-      # REST API CORS: 프리플라이트를 API Gateway에서 처리, 실제 응답 헤더는 Lambda에서 추가 권장
       Auth:
         DefaultAuthorizer: CognitoPoolAuth
         Authorizers:
           CognitoPoolAuth:
             UserPoolArn: !Ref CognitoUserPoolArn
-            # Identity 헤더 이름 지정 가능(기본 Authorization)
             Identity:
               Header: Authorization
 
@@ -56,20 +44,13 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: bizlenz-fastapi-rest-proxy
-<<<<<<< HEAD
       CodeUri: src/
       Handler: app.main.handler
       Policies:
         - AWSLambdaBasicExecutionRole
         - S3ReadPolicy:
-                  BucketName: bizlenz-original-files-bucket-dev
+            BucketName: !Ref S3BucketName
         - AmazonRDSFullAccess
-=======
-      CodeUri: .
-      Handler: main.handler
-      Policies:
-        - AWSLambdaBasicExecutionRole
->>>>>>> 244a037caa90c7bbbcbdd470554d9b3e3e58467e
       Events:
         RootProxy:
           Type: Api

@@ -19,62 +19,62 @@ from app.database import Base
 
 
 # -----------------------
-# Users 테이블 (Cognito 기반 서비스 프로필)
+# Users table
 # -----------------------
 class User(Base):
     __tablename__ = "users"
     id = Column(
-        String(255), primary_key=True, comment="Cognito Sub (서비스 내부 고유 ID)"
+        String(255), primary_key=True, comment="OIDC sub claim (internal unique ID)"
     )
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
-        comment="서비스 프로필 생성 일시",
+        comment="Profile creation timestamp",
     )
     updated_at = Column(
         TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now()
-    )  # 수정일시
+    )  # Last modified
 
-    # 관계 (1:N) - 한 사용자는 여러 개의 사업계획서를 업로드할 수 있다
+    # Relationship (1:N) — one user can upload multiple business plans
     business_plans = relationship(
         "BusinessPlan", back_populates="user", cascade="all, delete-orphan"
     )
 
 
 # -----------------------
-# BusinessPlans 테이블
+# BusinessPlans table
 # -----------------------
 class BusinessPlan(Base):
     __tablename__ = "business_plans"
-    id = Column(Integer, primary_key=True, index=True)  # 사업계획서 ID
+    id = Column(Integer, primary_key=True, index=True)
     user_id = Column(
         Integer, ForeignKey("users.id", ondelete="CASCADE")
-    )  # 업로드한 사용자 ID
-    file_name = Column(String(255), nullable=False)  # 원본 파일명
-    file_path = Column(String(500), nullable=False)  # 파일 저장 경로
-    file_size = Column(BigInteger)  # 파일 크기
-    mime_type = Column(String(100))  # 파일 MIME 타입
+    )
+    file_name = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_size = Column(BigInteger)
+    mime_type = Column(String(100))
     created_at = Column(
         TIMESTAMP(timezone=True), server_default=func.now()
-    )  # 업로드 일시
+    )
     updated_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
-        comment="수정 시각",
+        comment="Last modified",
     )
 
     status = Column(
         String(20),
         server_default="pending",
         nullable=False,
-        comment="분석 상태 (pending, processing, completed, failed)",
+        comment="Analysis status (pending, processing, completed, failed)",
     )
 
     latest_job_id = Column(
         Integer,
         ForeignKey("analysis_jobs.id", ondelete="SET NULL"),
-        comment="가장 최근 분석 작업 ID",
+        comment="Most recent analysis job ID",
     )
 
     __table_args__ = (
@@ -106,51 +106,51 @@ class BusinessPlan(Base):
 
 
 # -----------------------
-# AnalysisJobs 테이블
+# AnalysisJobs table
 # -----------------------
 class AnalysisJob(Base):
     __tablename__ = "analysis_jobs"
 
     id = Column(
-        Integer, primary_key=True, autoincrement=True, comment="분석 작업 고유 ID"
+        Integer, primary_key=True, autoincrement=True, comment="Unique analysis job ID"
     )
     plan_id = Column(
         Integer,
         ForeignKey("business_plans.id", ondelete="CASCADE"),
         nullable=False,
-        comment="분석 대상 사업계획서",
+        comment="Target business plan",
     )
     job_type = Column(
-        String(50), nullable=False, comment="분석 유형 (basic, market, industry 등)"
+        String(50), nullable=False, comment="Analysis type (basic, market, industry, etc.)"
     )
     status = Column(
         String(20),
         nullable=False,
-        comment="작업 상태 (pending, processing, completed, failed)",
+        comment="Job status (pending, processing, completed, failed)",
     )
-    token_usage = Column(Integer, comment="이 작업에서 사용된 토큰 양")
+    token_usage = Column(Integer, comment="Token count used in this job")
     created_at = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
-        comment="작업 생성(요청) 시각",
+        comment="Job creation timestamp",
     )
 
-    gemini_request_id = Column(String(100), comment="Gemini API 요청 ID")
-    processing_time_seconds = Column(Integer, comment="처리 시간 (초)")
-    error_message = Column(Text, comment="오류 메시지")
+    gemini_request_id = Column(String(100), comment="Gemini API request ID")
+    processing_time_seconds = Column(Integer, comment="Processing time (seconds)")
+    error_message = Column(Text, comment="Error message")
     retry_count = Column(
-        Integer, server_default="0", nullable=False, comment="재시도 횟수"
+        Integer, server_default="0", nullable=False, comment="Retry count"
     )
-    completed_at = Column(TIMESTAMP(timezone=True), comment="완료 시간")
+    completed_at = Column(TIMESTAMP(timezone=True), comment="Completion timestamp")
 
-    s3_bucket = Column(String(255), comment="S3 버킷명")
-    s3_key = Column(String(500), comment="S3 객체 키")
-    s3_region = Column(String(50), server_default="ap-northeast-2", comment="S3 리전")
+    s3_bucket = Column(String(255), comment="S3 bucket name")
+    s3_key = Column(String(500), comment="S3 object key")
+    s3_region = Column(String(50), server_default="ap-northeast-2", comment="S3 region")
     upload_status = Column(
         Enum("pending", "uploading", "completed", "failed", name="upload_status_enum"),
         server_default="pending",
         nullable=False,
-        comment="S3 업로드 상태",
+        comment="S3 upload status",
     )
 
     __table_args__ = (
@@ -202,30 +202,30 @@ class AnalysisJob(Base):
 
 
 # -----------------------
-# AnalysisResults 테이블
+# AnalysisResults table
 # -----------------------
 class AnalysisResult(Base):
     __tablename__ = "analysis_results"
 
     id = Column(
-        Integer, primary_key=True, autoincrement=True, comment="결과 항목 고유 ID"
+        Integer, primary_key=True, autoincrement=True, comment="Unique result ID"
     )
     analysis_job_id = Column(
         Integer,
         ForeignKey("analysis_jobs.id", ondelete="CASCADE"),
         nullable=False,
-        comment="이 결과를 생성한 분석 작업",
+        comment="Analysis job that generated this result",
     )
     evaluation_type = Column(
         String(50),
         nullable=False,
-        comment="평가 유형 (overall, market, industry, feedback 등)",
+        comment="Evaluation type (overall, market, industry, feedback, etc.)",
     )
-    score = Column(Numeric(5, 2), comment="점수 (0.00–100.00)")
-    summary = Column(Text, comment="요약")
-    details = Column(JSONB, comment="분석 상세 데이터(JSONB)")
+    score = Column(Numeric(5, 2), comment="Score (0.00–100.00)")
+    summary = Column(Text, comment="Summary")
+    details = Column(JSONB, comment="Detailed analysis data (JSONB)")
     created_at = Column(
-        TIMESTAMP(timezone=True), server_default=func.now(), comment="생성 일시"
+        TIMESTAMP(timezone=True), server_default=func.now(), comment="Creation timestamp"
     )
 
     __table_args__ = (
@@ -243,32 +243,32 @@ class AnalysisResult(Base):
 
 
 # =======================================
-# 시장/경쟁사/제품 분석 테이블
+# Market / Competitor / Product analysis tables
 # =======================================
 class MarketAnalysis(Base):
     __tablename__ = "market_analysis"
 
     id = Column(
-        Integer, primary_key=True, autoincrement=True, comment="분석 데이터 고유 ID"
+        Integer, primary_key=True, autoincrement=True, comment="Unique analysis data ID"
     )
-    market_name = Column(String(255), nullable=False, comment="분석 대상 시장의 이름")
-    year = Column(Integer, nullable=False, comment="데이터 기준 연도")
-    total_revenue = Column(Numeric(20, 2), comment="전체 시장 매출액")
-    cagr = Column(Numeric(5, 2), comment="연평균 성장률 (%)")
-    growth_drivers = Column(Text, comment="시장 성장 동인")
-    customer_group = Column(String(100), comment="주요 고객군")
-    avg_purchase_value = Column(Numeric(15, 2), comment="평균 구매 금액")
-    nps = Column(Numeric(5, 2), comment="순추천지수")
-    retention_rate = Column(Numeric(5, 2), comment="고객 유지율")
-    source = Column(String(255), comment="데이터의 출처")
+    market_name = Column(String(255), nullable=False, comment="Name of the target market")
+    year = Column(Integer, nullable=False, comment="Data reference year")
+    total_revenue = Column(Numeric(20, 2), comment="Total market revenue")
+    cagr = Column(Numeric(5, 2), comment="CAGR (%)")
+    growth_drivers = Column(Text, comment="Market growth drivers")
+    customer_group = Column(String(100), comment="Primary customer segment")
+    avg_purchase_value = Column(Numeric(15, 2), comment="Average purchase value")
+    nps = Column(Numeric(5, 2), comment="Net Promoter Score (NPS)")
+    retention_rate = Column(Numeric(5, 2), comment="Customer retention rate")
+    source = Column(String(255), comment="Data source")
     last_updated = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
-        comment="마지막 업데이트 시간",
+        comment="Last updated timestamp",
     )
-    industry_trends = Column(JSONB, comment="업종 트렌드 데이터")
-    market_conditions = Column(JSONB, comment="시장 상황 데이터")
+    industry_trends = Column(JSONB, comment="Industry trend data")
+    market_conditions = Column(JSONB, comment="Market conditions data")
 
     __table_args__ = (
         Index("idx_market_analysis_market_year", "market_name", desc("year")),
@@ -289,22 +289,22 @@ class CompetitorAnalysis(Base):
     __tablename__ = "competitor_analysis"
 
     id = Column(
-        Integer, primary_key=True, autoincrement=True, comment="분석 데이터 고유 ID"
+        Integer, primary_key=True, autoincrement=True, comment="Unique analysis data ID"
     )
-    market_name = Column(String(255), nullable=False, comment="분석 대상 시장의 이름")
-    year = Column(Integer, nullable=False, comment="데이터 기준 연도")
-    competitor_name = Column(String(255), nullable=False, comment="경쟁사 이름")
-    revenue = Column(Numeric(20, 2), comment="연간 매출액")
-    operating_profit = Column(Numeric(20, 2), comment="연간 영업이익")
-    debt_ratio = Column(Numeric(10, 2), comment="부채 비율")
-    share_percentage = Column(Numeric(5, 2), comment="시장 점유율")
-    competitive_advantage = Column(Text, comment="경쟁 우위 요소")
-    source = Column(String(255), comment="데이터 출처")
+    market_name = Column(String(255), nullable=False, comment="Name of the target market")
+    year = Column(Integer, nullable=False, comment="Data reference year")
+    competitor_name = Column(String(255), nullable=False, comment="Competitor name")
+    revenue = Column(Numeric(20, 2), comment="Annual revenue")
+    operating_profit = Column(Numeric(20, 2), comment="Annual operating profit")
+    debt_ratio = Column(Numeric(10, 2), comment="Debt ratio")
+    share_percentage = Column(Numeric(5, 2), comment="Market share (%)")
+    competitive_advantage = Column(Text, comment="Competitive advantage")
+    source = Column(String(255), comment="Data source")
     last_updated = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
-        comment="마지막 업데이트 시간",
+        comment="Last updated timestamp",
     )
 
     __table_args__ = (
@@ -319,21 +319,21 @@ class ProductAnalysis(Base):
     __tablename__ = "product_analysis"
 
     id = Column(
-        Integer, primary_key=True, autoincrement=True, comment="분석 데이터 고유 ID"
+        Integer, primary_key=True, autoincrement=True, comment="Unique analysis data ID"
     )
-    competitor_name = Column(String(255), nullable=False, comment="제품 소유 경쟁사")
-    product_name = Column(String(255), nullable=False, comment="제품명")
-    category = Column(String(100), comment="제품 카테고리")
-    price = Column(Numeric(15, 2), comment="대표 가격")
-    price_policy_notes = Column(Text, comment="가격 정책 설명")
-    distribution_channels = Column(Text, comment="유통 채널")
-    tech_level = Column(String(100), comment="기술 수준")
-    features = Column(Text, comment="주요 특징")
+    competitor_name = Column(String(255), nullable=False, comment="Competitor owning this product")
+    product_name = Column(String(255), nullable=False, comment="Product name")
+    category = Column(String(100), comment="Product category")
+    price = Column(Numeric(15, 2), comment="Representative price")
+    price_policy_notes = Column(Text, comment="Pricing policy notes")
+    distribution_channels = Column(Text, comment="Distribution channels")
+    tech_level = Column(String(100), comment="Technology level")
+    features = Column(Text, comment="Key features")
     last_updated = Column(
         TIMESTAMP(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
-        comment="마지막 업데이트 시간",
+        comment="Last updated timestamp",
     )
 
     __table_args__ = (

@@ -5,20 +5,19 @@ from sqlalchemy.orm import Session
 from app.models.models import User
 
 
-def get_or_create_user(db: Session, cognito_sub: str) -> type[User] | User:
+def get_or_create_user(db: Session, user_id: str) -> User:
     """
-    Find user using the given Cognito sub(user_id), create if not found
+    Find user by OIDC sub claim
+    Create if not found
     """
-    user = db.query(User).filter(User.id == cognito_sub).first()
+    user = db.query(User).filter(User.id == user_id).first()
     if user:
         return user
 
-    # TODO: Remove this logic when RDS is ready
-    # User does not exist, create a new one
     new_user = User(
-        id=cognito_sub,  # Set the primary key 'id' to the Cognito sub
+        id=user_id,  # Set the primary key 'id' to the OIDC sub claim
     )
     db.add(new_user)
     db.commit()
-    db.refresh(new_user)  # Refresh to load default values
+    db.refresh(new_user)
     return new_user
